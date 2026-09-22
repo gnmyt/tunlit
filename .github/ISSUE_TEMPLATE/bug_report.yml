@@ -1,0 +1,55 @@
+name: 🐛 Report a Bug
+description: Report a bug or issue in tunlit
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: checkboxes
+    attributes:
+      label: General
+      description: Please confirm the following statements
+      options:
+        - label: I have updated to the latest version of tunlit.
+          required: true
+        - label: My bug has not been reported yet.
+          required: true
+  - type: textarea
+    attributes:
+      label: The Bug
+      description: Describe the bug/issue in detail. If possible, include screenshots and provide steps to reproduce the error.
+      placeholder: An error occurs when ...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Where does the problem show up?
+      multiple: true
+      options:
+        - In the web UI
+        - In the CLI
+        - In a tunnel that is being forwarded
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Which forwarding mode is the server running?
+      multiple: true
+      options:
+        - Subdomain
+        - Path
+        - Direct TCP/UDP
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: server
+    attributes:
+      label: Which operating system is your tunlit server running on?
+      multiple: true
+      options:
+        - Linux
+        - Windows
+        - macOS
+    validations:
+      required: true
