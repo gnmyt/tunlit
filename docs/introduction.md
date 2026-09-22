@@ -5,6 +5,8 @@ and the CLI on any machine that has something worth sharing. All traffic goes th
 is nothing else to open in your firewall. tunlit can hold its own certificate or sit behind a proxy you already
 run, whichever you prefer.
 
+![The tunnel list](/screenshots/tunnels.png)
+
 ## The three modes
 
 HTTP tunnels are always created with `tunlit http <port>`. Whether they end up on a subdomain or under a path is a
@@ -32,6 +34,8 @@ isolated from each other belong on subdomains.
 No website at all. The owner gets a share code, the other side runs `tunlit connect <code>` and gets the port on
 their own machine - both TCP **and** UDP on the same port number, automatically. Perfect for game servers, SSH or
 databases.
+
+![The page behind a share link](/screenshots/connect.png)
 
 Read on: [Installation](/installation) · [Configuration](/configuration) · [Reverse proxy](/reverse-proxy) ·
 [CLI](/cli) · [HTTPS](/https)
