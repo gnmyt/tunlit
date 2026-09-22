@@ -1,0 +1,124 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.stats
+  margin-top: 1.75rem
+
+.stats-panel
+  padding: 1.25rem
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 0.875rem
+
+.stats-tiles
+  display: grid
+  grid-template-columns: repeat(5, 1fr)
+  gap: 0.75rem
+
+  @media (max-width: breakpoints.$tablet)
+    grid-template-columns: repeat(2, 1fr)
+
+.stat-tile
+  display: flex
+  flex-direction: column
+  gap: 0.1875rem
+  padding: 0.75rem 0.875rem
+  background-color: colors.$surface-raised
+  border: 1px solid colors.$border
+  border-radius: 0.75rem
+
+  &.accent-out
+    border-color: var(--chart-out)
+
+  &.accent-in
+    border-color: var(--chart-in)
+
+.stat-tile-label
+  color: colors.$muted
+  font-size: 0.6875rem
+  text-transform: uppercase
+  letter-spacing: 0.06em
+
+.stat-tile-value
+  font-size: 1.0625rem
+  font-weight: 600
+  font-variant-numeric: tabular-nums
+  letter-spacing: -0.01em
+
+.stats-chart
+  margin: 1.25rem 0 0
+
+  figcaption
+    display: flex
+    align-items: center
+    justify-content: space-between
+    margin-bottom: 0.625rem
+    color: colors.$subtext
+    font-size: 0.8125rem
+    font-weight: 600
+
+.stats-legend
+  display: flex
+  gap: 0.875rem
+  font-weight: 500
+
+  span
+    display: flex
+    align-items: center
+    gap: 0.375rem
+    color: colors.$muted
+    font-size: 0.75rem
+
+  i
+    width: 0.5rem
+    height: 0.5rem
+    border-radius: 2px
+
+.stats-chart-area
+  position: relative
+
+.stats-quiet
+  position: absolute
+  inset: 0
+  display: flex
+  align-items: center
+  justify-content: center
+  margin: 0
+  color: colors.$muted
+  font-size: 0.8125rem
+  pointer-events: none
+
+.chart-tooltip
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+  padding: 0.625rem 0.75rem
+  background-color: colors.$surface-raised
+  border: 1px solid colors.$border-strong
+  border-radius: 0.625rem
+  box-shadow: colors.$shadow-md
+  font-size: 0.75rem
+
+.chart-tooltip-time
+  color: colors.$muted
+  font-size: 0.6875rem
+
+.chart-tooltip-row
+  display: flex
+  align-items: center
+  gap: 0.375rem
+  color: colors.$subtext
+
+  i
+    width: 0.5rem
+    height: 0.5rem
+    border-radius: 2px
+
+  b
+    margin-left: auto
+    padding-left: 0.75rem
+    color: colors.$text
+    font-variant-numeric: tabular-nums
+
+  &.muted
+    color: colors.$muted
