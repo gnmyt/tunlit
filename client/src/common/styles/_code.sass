@@ -1,0 +1,29 @@
+@use "colors"
+
+.token.comment, .token.prolog, .token.cdata
+  color: colors.$muted
+  font-style: italic
+
+.token.punctuation
+  color: colors.$muted
+
+.token.property, .token.tag, .token.selector, .token.attr-name
+  color: colors.$primary-bright
+
+.token.string, .token.attr-value, .token.char
+  color: colors.$success
+
+.token.number, .token.boolean, .token.constant, .token.symbol
+  color: colors.$warning
+
+.token.null, .token.keyword, .token.important, .token.atrule
+  color: colors.$error
+
+.token.operator, .token.entity, .token.url
+  color: colors.$subtext
+
+.token.function, .token.class-name
+  color: colors.$primary-hover
+
+.token.doctype
+  color: colors.$muted

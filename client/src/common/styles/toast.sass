@@ -1,0 +1,59 @@
+@use "colors"
+
+.toast-container
+  position: fixed
+  bottom: 1.5rem
+  left: 50%
+  transform: translateX(-50%)
+  display: flex
+  flex-direction: column-reverse
+  gap: 0.5rem
+  z-index: 200
+  pointer-events: none
+  width: min(24rem, calc(100% - 2rem))
+
+.toast
+  display: flex
+  align-items: center
+  gap: 0.625rem
+  background-color: colors.$surface-raised
+  border: 1px solid colors.$border-strong
+  border-radius: 0.75rem
+  padding: 0.625rem 0.875rem
+  box-shadow: colors.$shadow-lg
+  pointer-events: all
+  animation: toast-in 0.18s ease
+
+  svg
+    width: 1.0625rem
+    height: 1.0625rem
+    flex-shrink: 0
+    color: colors.$primary
+
+  span
+    flex: 1
+    min-width: 0
+    font-size: 0.875rem
+    font-weight: 500
+
+  button
+    display: flex
+    background: none
+    border: none
+    padding: 0
+    color: colors.$muted
+    cursor: pointer
+
+    &:hover
+      color: colors.$text
+
+  &[data-type="Error"] svg
+    color: colors.$error
+
+  &[data-type="Success"] svg
+    color: colors.$success
+
+@keyframes toast-in
+  from
+    opacity: 0
+    transform: translateY(0.5rem)

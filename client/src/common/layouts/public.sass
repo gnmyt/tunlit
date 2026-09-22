@@ -1,0 +1,90 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.split
+  display: grid
+  grid-template-columns: 1fr 1fr
+  height: 100vh
+
+  @media (max-width: breakpoints.$tablet)
+    grid-template-columns: 1fr
+
+.split-form
+  display: flex
+  align-items: center
+  justify-content: flex-end
+  overflow-y: auto
+  padding: 3rem 2rem
+
+  @media (max-width: breakpoints.$tablet)
+    justify-content: center
+
+  @media (max-width: breakpoints.$mobile)
+    padding: 2rem 1.25rem
+
+.split-form-inner
+  width: 100%
+  max-width: 23rem
+
+.split-hero
+  position: relative
+  overflow: hidden
+  display: flex
+  flex-direction: column
+  justify-content: flex-end
+  padding: 3.5rem
+
+  &.filled
+    justify-content: center
+  background: radial-gradient(90% 70% at 85% 15%, rgba(20, 184, 166, 0.16), transparent 70%), linear-gradient(200deg, #16211F 0%, #0C0F0F 55%, #000000 100%)
+  border-left: 1px solid colors.$border
+
+  &::after
+    content: ""
+    position: absolute
+    inset: 0
+    background: radial-gradient(60% 50% at 50% 120%, rgba(13, 148, 136, 0.18), transparent 70%)
+    pointer-events: none
+
+  h2
+    position: relative
+    font-size: 2.75rem
+    line-height: 1.1
+    letter-spacing: -0.04em
+    color: colors.$text
+
+  @media (max-width: breakpoints.$tablet)
+    display: none
+
+.split-hero-logo
+  position: absolute
+  top: 3.5rem
+  left: 3.5rem
+  opacity: 0.9
+
+.form-head
+  margin-bottom: 1.75rem
+
+  h1
+    font-size: 1.875rem
+    margin-bottom: 0.5rem
+
+  p
+    margin: 0
+    color: colors.$subtext
+    font-size: 0.875rem
+    line-height: 1.55
+
+.form-body
+  display: flex
+  flex-direction: column
+  gap: 0.875rem
+
+.form-actions
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  margin-top: 1.5rem
+
+  .spacer
+    flex: 1

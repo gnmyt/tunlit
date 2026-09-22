@@ -1,0 +1,121 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.mode-choices
+  display: grid
+  grid-template-columns: 1fr 1fr
+  gap: 0.75rem
+
+  @media (max-width: 30rem)
+    grid-template-columns: 1fr
+
+.mode-choice
+  display: flex
+  flex-direction: column
+  align-items: stretch
+  gap: 0.3rem
+  padding: 0.875rem
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 0.875rem
+  color: colors.$text
+  font-family: inherit
+  text-align: left
+  cursor: pointer
+  transition: border-color 0.15s ease, background-color 0.15s ease
+
+  &:hover
+    border-color: colors.$border-strong
+
+  &.selected
+    border-color: colors.$primary
+    background-color: colors.$primary-tint
+
+    .mode-choice-mark
+      border-color: colors.$primary
+      background-color: colors.$primary
+
+      &::after
+        opacity: 1
+
+  &:focus-visible
+    outline: 2px solid colors.$primary
+    outline-offset: 2px
+
+.mode-choice-title
+  display: flex
+  align-items: center
+  gap: 0.4rem
+  font-size: 0.9375rem
+  font-weight: 600
+
+.mode-choice-mark
+  position: relative
+  width: 0.9375rem
+  height: 0.9375rem
+  margin-left: auto
+  flex-shrink: 0
+  border: 1px solid colors.$border-strong
+  border-radius: 999px
+
+  &::after
+    content: ""
+    position: absolute
+    inset: 0.1875rem
+    border-radius: 999px
+    background-color: colors.$on-primary
+    opacity: 0
+
+.mode-choice-summary
+  color: colors.$subtext
+  font-size: 0.8125rem
+  line-height: 1.45
+
+.mode-explainer
+  position: relative
+  width: 100%
+  max-width: 26rem
+
+  h3
+    margin-top: 1.5rem
+    font-size: 1.25rem
+    font-weight: 600
+    letter-spacing: -0.025em
+
+  ul
+    margin-top: 0.625rem
+    display: flex
+    flex-direction: column
+    gap: 0.4rem
+
+  li
+    position: relative
+    padding-left: 0.875rem
+    color: colors.$subtext
+    font-size: 0.8125rem
+    line-height: 1.5
+
+    &::before
+      content: ""
+      position: absolute
+      left: 0
+      top: 0.5rem
+      width: 0.25rem
+      height: 0.25rem
+      border-radius: 999px
+      background-color: colors.$primary
+
+.mode-diagram
+  width: 100%
+  height: auto
+
+.mode-explainer-inline
+  display: none
+  margin-top: 1.25rem
+  padding: 1rem
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 0.875rem
+
+  @media (max-width: breakpoints.$tablet)
+    display: block
