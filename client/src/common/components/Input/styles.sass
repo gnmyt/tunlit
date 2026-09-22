@@ -47,3 +47,19 @@
     color: colors.$muted
     font-size: 0.8125rem
     white-space: nowrap
+
+@keyframes field-autofill
+  from
+    opacity: 1
+  to
+    opacity: 1
+
+.field-input input
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus
+    animation-name: field-autofill
+    animation-duration: 1ms
+    box-shadow: 0 0 0 1000px colors.$surface inset
+    -webkit-text-fill-color: colors.$text
+    caret-color: colors.$text

@@ -1,23 +1,36 @@
 import "./styles.sass";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Input from "@/common/components/Input";
 import Button from "@/common/components/Button";
 import { postRequest } from "@/common/utils/RequestUtil.js";
+import { formValues, useAutofill } from "@/common/utils/autofill.js";
 
 export const Gate = ({ id, auth }) => {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
+    const formRef = useRef(null);
 
     const needsAccount = auth === "tunlit";
 
+    useAutofill(formRef, filled => {
+        if (filled["gate-username"]) setUsername(current => current || filled["gate-username"]);
+        if (filled["gate-password"]) setPassword(current => current || filled["gate-password"]);
+    });
+
     const submit = async event => {
         event.preventDefault();
+        const filled = formValues(event.currentTarget);
+        const identity = filled["gate-username"] || username;
+        const secret = filled["gate-password"] || password;
+        setUsername(identity);
+        setPassword(secret);
         setBusy(true);
         setError(null);
         try {
-            await postRequest(`gate/${encodeURIComponent(id)}`, needsAccount ? { username, password } : { password });
+            await postRequest(`gate/${encodeURIComponent(id)}`,
+                needsAccount ? { username: identity, password: secret } : { password: secret });
             window.location.reload();
         } catch (failure) {
             setError(failure.message || "That did not work");
@@ -26,7 +39,7 @@ export const Gate = ({ id, auth }) => {
     };
 
     return (
-        <form className="gate" onSubmit={submit}>
+        <form className="gate" onSubmit={submit} ref={formRef}>
             <div className="form-head">
                 <h1>Protected tunnel.</h1>
                 <p>{needsAccount

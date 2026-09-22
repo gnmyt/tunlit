@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Button from "@/common/components/Button";
 import Input from "@/common/components/Input";
 import { putRequest } from "@/common/utils/RequestUtil.js";
 import { useToast } from "@/common/contexts/toast.js";
 import { useUser } from "@/common/contexts/user.js";
+import { formValues, useAutofill } from "@/common/utils/autofill.js";
 import TwoFactor from "./components/TwoFactor";
 import Passkeys from "./components/Passkeys";
 
@@ -14,14 +15,24 @@ export const Account = () => {
     const [newPassword, setNewPassword] = useState("");
     const [confirm, setConfirm] = useState("");
     const [saving, setSaving] = useState(false);
+    const formRef = useRef(null);
+
+    useAutofill(formRef, filled => {
+        if (filled["current-password"]) setCurrentPassword(current => current || filled["current-password"]);
+    });
 
     const submit = async event => {
         event.preventDefault();
-        if (newPassword.length < 8) return sendToast("Error", "Password must be at least 8 characters");
-        if (newPassword !== confirm) return sendToast("Error", "Passwords do not match");
+        const filled = formValues(event.currentTarget);
+        const current = filled["current-password"] || currentPassword;
+        const next = filled["new-password"] || newPassword;
+        setCurrentPassword(current);
+        setNewPassword(next);
+        if (next.length < 8) return sendToast("Error", "Password must be at least 8 characters");
+        if (next !== (filled["confirm-password"] || confirm)) return sendToast("Error", "Passwords do not match");
         setSaving(true);
         try {
-            await putRequest("settings/password", { currentPassword, newPassword });
+            await putRequest("settings/password", { currentPassword: current, newPassword: next });
             sendToast("Success", "Password changed");
             setUser(null);
         } catch (error) {
@@ -33,7 +44,7 @@ export const Account = () => {
 
     return (
         <>
-        <form className="settings-panel" onSubmit={submit}>
+        <form className="settings-panel" onSubmit={submit} ref={formRef}>
             <div className="settings-head">
                 <h2>Change password</h2>
             </div>

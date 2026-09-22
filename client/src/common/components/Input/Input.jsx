@@ -1,6 +1,6 @@
 import "./styles.sass";
 
-export const Input = ({ type = "text", id, name, placeholder, value, setValue, onChange, onKeyDown,
+export const Input = ({ type = "text", id, name = id, placeholder, value, setValue, onChange, onKeyDown,
                           autoComplete, autoFocus, required, disabled, label, suffix, inputMode }) => {
     const handleChange = event => {
         if (setValue) setValue(event.target.value);

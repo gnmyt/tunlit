@@ -1,5 +1,5 @@
 import "./styles.sass";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Fingerprint } from "lucide-react";
 import Input from "@/common/components/Input";
@@ -8,6 +8,7 @@ import { getRequest, postRequest } from "@/common/utils/RequestUtil.js";
 import { useToast } from "@/common/contexts/toast.js";
 import { useUser } from "@/common/contexts/user.js";
 import { passkeysSupported, signInWithPasskey } from "@/common/utils/webauthn.js";
+import { formValues, useAutofill } from "@/common/utils/autofill.js";
 
 export const Login = () => {
     const { sendToast } = useToast();
@@ -21,6 +22,12 @@ export const Login = () => {
     const [needsCode, setNeedsCode] = useState(false);
     const [providers, setProviders] = useState([]);
     const [loading, setLoading] = useState(false);
+    const formRef = useRef(null);
+
+    useAutofill(formRef, filled => {
+        if (filled.username) setUsername(current => current || filled.username);
+        if (filled.password) setPassword(current => current || filled.password);
+    });
 
     useEffect(() => {
         getRequest("auth/providers").then(data => setProviders(data.providers)).catch(() => setProviders([]));
@@ -41,9 +48,17 @@ export const Login = () => {
 
     const submit = async event => {
         event.preventDefault();
+        const filled = formValues(event.currentTarget);
+        const identity = filled.username || username;
+        const secret = filled.password || password;
+        setUsername(identity);
+        setPassword(secret);
         setLoading(true);
         try {
-            const result = await postRequest("auth/login", { username, password, code: needsCode ? code : undefined });
+            const result = await postRequest("auth/login", {
+                username: identity, password: secret,
+                code: needsCode ? (filled.code || code) : undefined,
+            });
             if (result.totpRequired) {
                 setNeedsCode(true);
                 setCode("");
@@ -79,7 +94,7 @@ export const Login = () => {
     };
 
     return (
-        <form className="login" onSubmit={submit}>
+        <form className="login" onSubmit={submit} ref={formRef}>
             <div className="form-head">
                 <h1>{needsCode ? "One more step." : "Welcome back."}</h1>
                 {needsCode && <p>Enter the code from your authenticator app.</p>}
