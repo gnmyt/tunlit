@@ -18,6 +18,10 @@ docs/.vitepress/cache
 # CLI
 cli/target/
 
+build/
+dist/
+stage/
+
 # IDEs
 .idea/
 .vscode/
