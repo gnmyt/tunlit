@@ -20,7 +20,7 @@ dirs = "6"
 anyhow = "1"
 futures-util = "0.3"
 open = "5"
-indicatif = "0.17"
+indicatif = "0.18"
 qrcode = { version = "0.14", default-features = false }
 arboard = { version = "3", default-features = false }
 
