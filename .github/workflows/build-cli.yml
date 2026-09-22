@@ -40,7 +40,7 @@ jobs:
             target: aarch64-apple-darwin
             artifact_name: tunlit-macos-arm64
           - name: macos-x64
-            os: macos-13
+            os: macos-latest
             target: x86_64-apple-darwin
             artifact_name: tunlit-macos-x64
           - name: windows-x64

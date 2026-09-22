@@ -174,7 +174,7 @@ jobs:
   cleanup:
     name: "Clean up a failed release"
     needs: [create-release, build-cli, build-server, build-docker, publish]
-    if: failure()
+    if: ${{ failure() || cancelled() }}
     runs-on: ubuntu-latest
 
     steps:
