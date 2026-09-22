@@ -1,0 +1,7 @@
+listen: 0.0.0.0                        # TUNLIT_LISTEN
+port: 8080                             # TUNLIT_PORT
+baseDomain: tunlit.example.com         # TUNLIT_BASE_DOMAIN  (subdomain tunnels become <id>.<baseDomain>)
+publicUrl: https://tunlit.example.com  # TUNLIT_PUBLIC_URL   (used when printing URLs)
+trustProxy: false                      # TUNLIT_TRUST_PROXY  (turn on only when nothing but your proxy can reach the port)
+httpMode: subdomain                    # TUNLIT_HTTP_MODE    (how `tunlit http` is exposed: "subdomain" = <id>.<baseDomain>, "path" = <baseDomain>/@<id>)
+gracePeriod: 30                        # TUNLIT_GRACE_PERIOD (seconds a tunnel id stays reserved after the CLI drops)

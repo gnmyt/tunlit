@@ -1,0 +1,14 @@
+node_modules/
+client/node_modules/
+client/dist/
+data/
+cli/
+docs/
+.github/
+.git/
+.idea/
+.vscode/
+config.yml
+.env
+*.md
+!README.md

@@ -1,0 +1,39 @@
+{
+  "name": "tunlit",
+  "version": "0.1.0",
+  "description": "Self-hosted tunnels: subdomain, path and direct TCP/UDP behind one public port",
+  "main": "server/index.js",
+  "repository": "https://github.com/gnmyt/tunlit.git",
+  "author": "Mathias Wagner",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev:server": "node --watch server/index.js",
+    "dev:client": "cd client && npm run dev",
+    "dev": "concurrently --kill-others-on-fail \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "cd client && npm install && npm run build",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "^14.0.2",
+    "acme-client": "^5.4.0",
+    "js-yaml": "^4.1.0",
+    "openid-client": "^6.8.8",
+    "sequelize": "^6.37.8",
+    "speakeasy": "^2.0.0",
+    "sqlite3": "^6.0.1",
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.9"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0",
+    "vitepress": "^1.6.4"
+  }
+}
