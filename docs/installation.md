@@ -85,12 +85,14 @@ Both repositories carry x86-64 and ARM64, and `apt upgrade` or `dnf upgrade` kee
 
 ### Windows
 
-Download `tunlit-<version>-x64.msi` from the [latest release](https://github.com/gnmyt/tunlit/releases/latest) and
-run it. It installs to `Program Files`, puts `tunlit` on your `PATH` and registers `tunlit://` links, so the
-**Open in tunlit** button on a share page reaches the CLI.
+Download and run
+[tunlit-x64.msi](https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-x64.msi). It installs to
+`Program Files`, puts `tunlit` on your `PATH` and registers `tunlit://` links, so the **Open in tunlit** button on
+a share page reaches the CLI.
 
-Prefer no installer? `tunlit.exe` is on the same page, or straight from
-<https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-windows-x64.exe>.
+Prefer no installer?
+[tunlit.exe](https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-windows-x64.exe) is the same binary
+without one.
 
 ### macOS, or any other Linux
 

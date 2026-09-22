@@ -35,6 +35,7 @@ export const detectPlatform = async () => {
                 : high.architecture === "x86" && high.bitness === "64" ? "x64" : null;
             if (os) return { os, arch: arch || fromUserAgent().arch };
         } catch {
+            // Client hints can be refused by permissions policy; the user agent still answers.
         }
     }
     return fromUserAgent();
@@ -44,12 +45,11 @@ export const downloadsFor = ({ os, arch }, version) => {
     const all = version ? `${REPOSITORY}/releases/tag/v${version}` : `${REPOSITORY}/releases`;
     if (!version || !os) return { version, all, files: [] };
 
-    const semver = version.split("-")[0];
     const file = (name, label) => ({ url: `${REPOSITORY}/releases/download/v${version}/${name}`, label });
 
     if (os === "windows") {
         return { version, all, files: [
-            file(`tunlit-${semver}-x64.msi`, "Windows installer"),
+            file("tunlit-x64.msi", "Windows installer"),
             file("tunlit-windows-x64.exe", "Plain tunlit.exe"),
         ] };
     }
@@ -62,8 +62,8 @@ export const downloadsFor = ({ os, arch }, version) => {
 
     const onArm = arch === "arm64";
     return { version, all, files: [
-        file(`tunlit-cli_${semver}_${onArm ? "arm64" : "amd64"}.deb`, "Debian, Ubuntu"),
-        file(`tunlit-cli-${semver}-1.${onArm ? "aarch64" : "x86_64"}.rpm`, "Fedora, RHEL"),
+        file(`tunlit-cli-${onArm ? "arm64" : "amd64"}.deb`, "Debian, Ubuntu"),
+        file(`tunlit-cli-${onArm ? "aarch64" : "x86_64"}.rpm`, "Fedora, RHEL"),
         file(onArm ? "tunlit-linux-arm64" : "tunlit-linux-x64", "Plain binary"),
     ] };
 };

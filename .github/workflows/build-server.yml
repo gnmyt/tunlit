@@ -108,12 +108,12 @@ jobs:
           PKG_ARCH=${{ matrix.deb_arch }} nfpm pkg \
             --config packaging/nfpm-server.yaml \
             --packager deb \
-            --target "dist/tunlit-server_${PKG_VERSION}_${{ matrix.deb_arch }}.deb"
+            --target "dist/tunlit-server-${{ matrix.deb_arch }}.deb"
 
           PKG_ARCH=${{ matrix.rpm_arch }} nfpm pkg \
             --config packaging/nfpm-server.yaml \
             --packager rpm \
-            --target "dist/tunlit-server-${PKG_VERSION}-1.${{ matrix.rpm_arch }}.rpm"
+            --target "dist/tunlit-server-${{ matrix.rpm_arch }}.rpm"
 
       - name: Upload the packages
         if: matrix.is_linux
