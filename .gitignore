@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+client/node_modules/
+
+# Client build
+client/dist/
+
+# Runtime
+config.yml
+.env
+*.log
+data/
+
+# Docs
+docs/.vitepress/dist
+docs/.vitepress/cache
+
+# CLI
+cli/target/
+
+# IDEs
+.idea/
+.vscode/
+.DS_Store
