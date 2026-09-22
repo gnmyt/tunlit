@@ -1,0 +1,46 @@
+@use "@/common/styles/colors"
+
+.copy-field
+  display: flex
+  align-items: center
+  gap: 0.25rem
+  min-width: 0
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 0.625rem
+  padding: 0.25rem 0.25rem 0.25rem 0.75rem
+
+  code
+    flex: 1
+    min-width: 0
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+    font-size: 0.8125rem
+    color: colors.$subtext
+    user-select: all
+
+  button
+    display: flex
+    align-items: center
+    justify-content: center
+    width: 1.75rem
+    height: 1.75rem
+    flex-shrink: 0
+    background: none
+    border: none
+    border-radius: 0.4rem
+    color: colors.$muted
+    cursor: pointer
+    transition: background-color 0.15s ease, color 0.15s ease
+
+    svg
+      width: 0.9375rem
+      height: 0.9375rem
+
+    &:hover
+      background-color: colors.$surface-hover
+      color: colors.$text
+
+    &.copied
+      color: colors.$success

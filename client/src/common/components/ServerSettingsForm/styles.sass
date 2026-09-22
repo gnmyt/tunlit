@@ -1,0 +1,17 @@
+@use "@/common/styles/breakpoints"
+
+.settings-form
+  display: flex
+  flex-direction: column
+  gap: 0.875rem
+
+.settings-form-row
+  display: flex
+  gap: 0.75rem
+
+  @media (max-width: breakpoints.$mobile)
+    flex-direction: column
+
+  > *
+    flex: 1
+    min-width: 0

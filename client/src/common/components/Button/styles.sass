@@ -1,0 +1,75 @@
+@use "@/common/styles/colors"
+
+.btn
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  gap: 0.5rem
+  border: 1px solid transparent
+  border-radius: 0.75rem
+  padding: 0.5rem 1rem
+  font-family: inherit
+  font-size: 0.875rem
+  font-weight: 500
+  cursor: pointer
+  white-space: nowrap
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease
+
+  svg
+    width: 1.0625rem
+    height: 1.0625rem
+
+  &:active
+    transform: translateY(0.5px)
+
+  &:disabled
+    opacity: 0.45
+    cursor: not-allowed
+    transform: none
+
+.btn-primary
+  background-color: colors.$primary-bright
+  color: colors.$on-primary
+  font-weight: 600
+
+  &:hover:not(:disabled)
+    background-color: colors.$primary-hover
+
+  &:disabled
+    background-color: colors.$surface-hover
+    color: colors.$muted
+    opacity: 1
+
+.btn-secondary
+  background-color: transparent
+  border-color: colors.$border-strong
+  color: colors.$text
+
+  &:hover:not(:disabled)
+    background-color: colors.$surface-hover
+
+.btn-ghost
+  background-color: transparent
+  color: colors.$subtext
+
+  &:hover:not(:disabled)
+    background-color: colors.$surface-hover
+    color: colors.$text
+
+.btn-danger
+  background-color: transparent
+  border-color: colors.$border-strong
+  color: colors.$subtext
+
+  &:hover:not(:disabled)
+    background-color: colors.$error-tint
+    border-color: transparent
+    color: colors.$error
+
+  &.btn-icon
+    border-color: transparent
+    color: colors.$muted
+
+.btn-icon
+  padding: 0.5rem
+  border-radius: 0.625rem

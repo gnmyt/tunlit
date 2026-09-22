@@ -1,0 +1,20 @@
+@use "@/common/styles/colors"
+
+.loading
+  display: flex
+  align-items: center
+  justify-content: center
+  padding: 4rem 0
+  flex: 1
+
+.loading-spinner
+  width: 1.5rem
+  height: 1.5rem
+  border: 2px solid colors.$border-strong
+  border-top-color: colors.$primary
+  border-radius: 50%
+  animation: loading-spin 0.7s linear infinite
+
+@keyframes loading-spin
+  to
+    transform: rotate(360deg)
