@@ -1,0 +1,27 @@
+@use "@/common/styles/colors"
+
+.login
+  width: 100%
+
+.login-alternatives
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+  margin-top: 1.5rem
+
+  .btn
+    width: 100%
+
+.login-divider
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  margin-bottom: 0.25rem
+  color: colors.$muted
+  font-size: 0.75rem
+
+  &::before, &::after
+    content: ""
+    flex: 1
+    height: 1px
+    background-color: colors.$border
