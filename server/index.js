@@ -100,6 +100,7 @@ const start = async () => {
         process.exit(1);
     }
     await runMigrations();
+    config.setupRequired = await isSetupRequired();
     try {
         applyStored(config, await require("./lib/settings").read());
     } catch (err) {
@@ -127,9 +128,7 @@ const start = async () => {
             if (--remaining) return;
             if (config.ready) logger.info(`Base domain: ${config.baseDomain} (public URL ${config.publicUrl}, tls=${config.tlsMode}, trustProxy=${config.trustProxy})`);
             else logger.warn("baseDomain missing: only the web UI is served until the guided setup is completed");
-            isSetupRequired().then(required => {
-                if (required) logger.warn(`No admin account yet, open ${config.publicUrl || `http://localhost:${config.port}`}/@tunlit/ to run the guided setup`);
-            });
+            if (config.setupRequired) logger.warn(`No admin account yet, open ${config.publicUrl || `http://localhost:${config.port}`}/@tunlit/ to run the guided setup`);
             logger.info(`Data directory: ${dataDir()}`);
             if (!hasBuild()) logger.warn("client/dist not found: run `npm run build` in client/ to serve the web UI");
         });

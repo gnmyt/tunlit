@@ -45,6 +45,7 @@ module.exports.completeSetup = async (config, { username, password, settings }) 
     if (created.code) return created;
 
     await settingsStore.write(changed);
+    config.setupRequired = false;
     logger.info(`Setup completed, admin account "${username}" created`);
     return { message: "Setup complete", account: created.account };
 };

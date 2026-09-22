@@ -139,7 +139,7 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
         if (pathname.startsWith(ACME_PREFIX) && acmeChallenge(req, res, pathname)) return;
         const isUi = pathname === UI_PREFIX || pathname.startsWith(`${UI_PREFIX}/`);
 
-        if (!config.ready) {
+        if (!config.ready || config.setupRequired) {
             if (isUi) return handleUi(req, res, info, pathname);
             return noTunnel(req, res, `${UI_PREFIX}/`);
         }
@@ -193,7 +193,7 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
             socket.destroy();
         };
 
-        if (!config.ready) return reject(503, "Setup required");
+        if (!config.ready || config.setupRequired) return reject(503, "Setup required");
         const host = classifyHost(info.hostname, config.baseDomain);
 
         if (host.kind === "base" && pathname === "/@tunlit/ws") return control.handleUpgrade(req, socket, head);
