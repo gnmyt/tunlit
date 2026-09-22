@@ -1,0 +1,95 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.tunnel-row
+  width: 100%
+  display: flex
+  align-items: center
+  gap: 0.625rem
+  min-width: 0
+  padding: 0.875rem 1rem
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 0.875rem
+  color: colors.$text
+  font-family: inherit
+  font-size: 0.875rem
+  text-align: left
+  cursor: pointer
+  transition: border-color 0.15s ease, background-color 0.15s ease
+
+  &:hover
+    border-color: colors.$border-strong
+    background-color: colors.$surface-raised
+
+  &:focus-visible
+    outline: 2px solid colors.$primary
+    outline-offset: 2px
+
+  &.offline
+    opacity: 0.7
+
+.tunnel-dot
+  width: 0.4375rem
+  height: 0.4375rem
+  flex-shrink: 0
+  border-radius: 50%
+  background-color: colors.$success
+
+  &.offline
+    background-color: colors.$warning
+
+.tunnel-id
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
+  font-weight: 600
+  white-space: nowrap
+
+.tunnel-mode
+  padding: 0.0625rem 0.4rem
+  border-radius: 0.375rem
+  background-color: colors.$surface-hover
+  color: colors.$muted
+  font-size: 0.6875rem
+  font-weight: 600
+
+.tunnel-endpoint
+  color: colors.$subtext
+  font-size: 0.8125rem
+  white-space: nowrap
+  overflow: hidden
+  text-overflow: ellipsis
+
+  @media (max-width: breakpoints.$mobile)
+    display: none
+
+.tunnel-spacer
+  flex: 1
+
+.tunnel-meta
+  color: colors.$muted
+  font-size: 0.75rem
+  white-space: nowrap
+
+  @media (max-width: breakpoints.$mobile)
+    display: none
+
+.tunnel-time
+  color: colors.$muted
+  font-size: 0.75rem
+  white-space: nowrap
+  font-variant-numeric: tabular-nums
+
+.tunnel-chevron
+  width: 1rem
+  height: 1rem
+  flex-shrink: 0
+  color: colors.$muted
+
+.tunnel-owner
+  flex-shrink: 0
+  padding: 0.125rem 0.4375rem
+  border-radius: 0.375rem
+  background-color: colors.$primary-tint
+  color: colors.$primary
+  font-size: 0.6875rem
+  font-weight: 600
