@@ -1,0 +1,30 @@
+@use "@/common/styles/colors"
+
+.status-page
+  width: 100%
+
+  code
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace
+    font-size: 0.85em
+    color: var(--primary-bright)
+    background: var(--surface-raised)
+    border: 1px solid var(--border)
+    border-radius: 0.375rem
+    padding: 0.1rem 0.35rem
+
+  .status-wait
+    display: flex
+    align-items: center
+    min-height: 2rem
+
+  .status-spinner
+    width: 1.1rem
+    height: 1.1rem
+    border: 2px solid var(--border-strong)
+    border-top-color: var(--primary-bright)
+    border-radius: 50%
+    animation: status-spin 0.9s linear infinite
+
+@keyframes status-spin
+  to
+    transform: rotate(360deg)
