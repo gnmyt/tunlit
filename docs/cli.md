@@ -158,37 +158,6 @@ port number; if it is taken you are asked for another one.
 | `--bind <addr>` | Local address to bind (default `127.0.0.1`). Use `0.0.0.0` to let other machines in your LAN use the forward. |
 | `--server <url>` | tunlit server URL. Only needed when a bare code was pasted instead of the link. |
 
-### Opening links from the browser
-
-The page behind a share link has an **Open in tunlit** button, and so does the tunnel's own page in the web UI.
-Either one hands the link to the CLI on your machine instead of making you copy a command.
-
-Install the Debian or RPM package, or the Windows installer, and the scheme is already registered for everyone on
-the machine. Nothing to do.
-
-With a binary you downloaded yourself, claim it once:
-
-```sh
-tunlit links register     # tunlit:// now opens this CLI
-tunlit links forget       # undo
-```
-
-That writes for your user only, never system-wide:
-
-| System | Where |
-|---|---|
-| Linux | `~/.local/share/applications/tunlit.desktop`, registered with `xdg-mime` |
-| macOS | a small `~/Applications/tunlit.app` whose only job is to hand the link over |
-| Windows | `HKCU\Software\Classes\tunlit` |
-
-Clicking the button opens a terminal running `tunlit connect`, so you can watch it and stop it with Ctrl+C like any
-other tunnel. Your browser asks before it hands anything over, and the CLI only accepts links that carry a share
-code and an `http(s)` server. Nothing else in the URL is used.
-
-> [!NOTE]
-> Re-run `tunlit links register` after moving or replacing the binary: the registration points at the path the CLI
-> had when you ran it.
-
 ### Configuration
 
 ```sh

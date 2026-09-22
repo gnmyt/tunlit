@@ -138,9 +138,6 @@ jobs:
             echo "| **macOS** | [tunlit](../../releases/download/v${VERSION}/tunlit-macos-x64) | [tunlit](../../releases/download/v${VERSION}/tunlit-macos-arm64) |"
             echo "| **Windows** | [installer](../../releases/download/v${VERSION}/tunlit-${SEMVER}-x64.msi) · [tunlit.exe](../../releases/download/v${VERSION}/tunlit-windows-x64.exe) | |"
             echo
-            echo "The Linux packages and the Windows installer register \`tunlit://\` links, so the button on a share page"
-            echo "opens the CLI. With a bare binary, run \`tunlit links register\` once."
-            echo
             echo "## Server"
             echo
             echo "| Platform | x86-64 | ARM64 |"
