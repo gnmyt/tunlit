@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      semver: ${{ steps.version.outputs.semver }}
       previous: ${{ steps.version.outputs.previous }}
 
     steps:
@@ -25,7 +26,9 @@ jobs:
       - name: Read the version from the tag
         id: version
         run: |
-          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "semver=${VERSION%%-*}" >> "$GITHUB_OUTPUT"
           echo "previous=$(git tag --sort=-creatordate | grep -v "^${GITHUB_REF_NAME}$" | head -1)" >> "$GITHUB_OUTPUT"
 
       - name: Open a draft release
@@ -44,6 +47,16 @@ jobs:
     uses: ./.github/workflows/build-cli.yml
     with:
       version: ${{ needs.create-release.outputs.version }}
+      semver: ${{ needs.create-release.outputs.semver }}
+    secrets: inherit
+
+  build-server:
+    name: "Build Server"
+    needs: create-release
+    uses: ./.github/workflows/build-server.yml
+    with:
+      version: ${{ needs.create-release.outputs.version }}
+      semver: ${{ needs.create-release.outputs.semver }}
     secrets: inherit
 
   build-docker:
@@ -56,7 +69,7 @@ jobs:
 
   publish:
     name: "Publish Release"
-    needs: [create-release, build-cli, build-docker]
+    needs: [create-release, build-cli, build-server, build-docker]
     runs-on: ubuntu-latest
 
     steps:
@@ -103,6 +116,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.create-release.outputs.version }}
+          SEMVER: ${{ needs.create-release.outputs.semver }}
           PREVIOUS: ${{ needs.create-release.outputs.previous }}
         run: |
           {
@@ -122,7 +136,20 @@ jobs:
             echo "| :-- | :-- | :-- |"
             echo "| **Linux** | [tunlit](../../releases/download/v${VERSION}/tunlit-linux-x64) | [tunlit](../../releases/download/v${VERSION}/tunlit-linux-arm64) |"
             echo "| **macOS** | [tunlit](../../releases/download/v${VERSION}/tunlit-macos-x64) | [tunlit](../../releases/download/v${VERSION}/tunlit-macos-arm64) |"
-            echo "| **Windows** | [tunlit.exe](../../releases/download/v${VERSION}/tunlit-windows-x64.exe) | |"
+            echo "| **Windows** | [installer](../../releases/download/v${VERSION}/tunlit-${SEMVER}-x64.msi) · [tunlit.exe](../../releases/download/v${VERSION}/tunlit-windows-x64.exe) | |"
+            echo
+            echo "The Linux packages and the Windows installer register \`tunlit://\` links, so the button on a share page"
+            echo "opens the CLI. With a bare binary, run \`tunlit links register\` once."
+            echo
+            echo "## Server"
+            echo
+            echo "| Platform | x86-64 | ARM64 |"
+            echo "| :-- | :-- | :-- |"
+            echo "| **Linux** | [binary](../../releases/download/v${VERSION}/tunlit-server-linux-x64) · [deb](../../releases/download/v${VERSION}/tunlit-server_${SEMVER}_amd64.deb) · [rpm](../../releases/download/v${VERSION}/tunlit-server-${SEMVER}-1.x86_64.rpm) | [binary](../../releases/download/v${VERSION}/tunlit-server-linux-arm64) · [deb](../../releases/download/v${VERSION}/tunlit-server_${SEMVER}_arm64.deb) · [rpm](../../releases/download/v${VERSION}/tunlit-server-${SEMVER}-1.aarch64.rpm) |"
+            echo "| **macOS** | | [binary](../../releases/download/v${VERSION}/tunlit-server-macos-arm64) |"
+            echo "| **Windows** | [tunlit-server.exe](../../releases/download/v${VERSION}/tunlit-server-windows-x64.exe) | |"
+            echo
+            echo "Debian and RPM packages are also served from <https://packages.buildkite.com/tunlit>."
             echo
           } > notes.md
 
@@ -136,9 +163,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "$GITHUB_REF_NAME" --draft=false --notes-file notes.md --latest
 
+  deploy-repo:
+    name: "Publish packages"
+    needs: [create-release, publish]
+    uses: ./.github/workflows/deploy-repo.yml
+    with:
+      version: ${{ needs.create-release.outputs.version }}
+    secrets: inherit
+
   cleanup:
     name: "Clean up a failed release"
-    needs: [create-release, build-cli, build-docker, publish]
+    needs: [create-release, build-cli, build-server, build-docker, publish]
     if: failure()
     runs-on: ubuntu-latest
 

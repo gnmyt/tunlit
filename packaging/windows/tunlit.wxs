@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <Package Name="tunlit"
+             Manufacturer="Mathias Wagner"
+             Version="$(var.Version)"
+             UpgradeCode="25C6FFA8-2E57-4A0F-9B5D-715345435853"
+             Scope="perMachine"
+             Compressed="yes">
+
+        <SummaryInformation Description="tunlit CLI" Manufacturer="Mathias Wagner" />
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of tunlit is already installed." />
+        <MediaTemplate EmbedCab="yes" />
+
+        <Property Id="ARPURLINFOABOUT" Value="https://github.com/gnmyt/tunlit" />
+
+        <StandardDirectory Id="ProgramFiles64Folder">
+            <Directory Id="INSTALLFOLDER" Name="tunlit" />
+        </StandardDirectory>
+
+        <Feature Id="Main" Title="tunlit" Level="1">
+            <ComponentGroupRef Id="Components" />
+        </Feature>
+
+        <ComponentGroup Id="Components" Directory="INSTALLFOLDER">
+            <Component Id="Executable">
+                <File Id="TunlitExe" Name="tunlit.exe" Source="$(var.BinPath)" KeyPath="yes" />
+
+                <Environment Id="TunlitPath"
+                             Name="PATH"
+                             Value="[INSTALLFOLDER]"
+                             Action="set"
+                             Part="last"
+                             System="yes"
+                             Permanent="no" />
+            </Component>
+
+            <Component Id="UrlScheme">
+                <RegistryKey Root="HKLM" Key="Software\Classes\tunlit">
+                    <RegistryValue Type="string" Value="URL:tunlit" KeyPath="yes" />
+                    <RegistryValue Name="URL Protocol" Type="string" Value="" />
+                </RegistryKey>
+                <RegistryKey Root="HKLM" Key="Software\Classes\tunlit\DefaultIcon">
+                    <RegistryValue Type="string" Value="[INSTALLFOLDER]tunlit.exe,0" />
+                </RegistryKey>
+                <RegistryKey Root="HKLM" Key="Software\Classes\tunlit\shell\open\command">
+                    <RegistryValue Type="string"
+                                   Value="&quot;[System64Folder]cmd.exe&quot; /k &quot;&quot;[INSTALLFOLDER]tunlit.exe&quot; connect &quot;%1&quot;&quot;" />
+                </RegistryKey>
+            </Component>
+        </ComponentGroup>
+    </Package>
+</Wix>

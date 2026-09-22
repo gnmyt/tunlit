@@ -1,0 +1,123 @@
+name: Build Server
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      semver:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-server:
+    name: "Server (${{ matrix.name }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-22.04
+            artifact_name: tunlit-server-linux-x64
+            output_ext: ""
+            is_linux: true
+            deb_arch: amd64
+            rpm_arch: x86_64
+          - name: linux-arm64
+            os: ubuntu-22.04-arm
+            artifact_name: tunlit-server-linux-arm64
+            output_ext: ""
+            is_linux: true
+            deb_arch: arm64
+            rpm_arch: aarch64
+          - name: macos-arm64
+            os: macos-latest
+            artifact_name: tunlit-server-macos-arm64
+            output_ext: ""
+            is_linux: false
+          - name: windows-x64
+            os: windows-latest
+            artifact_name: tunlit-server-windows-x64.exe
+            output_ext: ".exe"
+            is_linux: false
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+
+      - name: Stamp the version
+        shell: bash
+        run: |
+          node -e "const f='package.json',p=require('./'+f);p.version='${{ inputs.version }}';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+
+      - name: Build the web interface
+        shell: bash
+        run: |
+          npm ci --no-audit --no-fund --prefix client
+          npm run build --prefix client
+
+      - name: Build the single executable
+        shell: bash
+        env:
+          BIN_NAME: tunlit-server${{ matrix.output_ext }}
+        run: ./scripts/build-sea.sh
+
+      - name: Upload to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "build/sea/tunlit-server${{ matrix.output_ext }}" "${{ matrix.artifact_name }}"
+          gh release upload "$GITHUB_REF_NAME" "${{ matrix.artifact_name }}" --clobber
+
+      - name: Install nfpm
+        if: matrix.is_linux
+        shell: bash
+        run: |
+          NFPM_VERSION=2.43.0
+          case "$(uname -m)" in
+            x86_64) HOST=x86_64 ;;
+            aarch64|arm64) HOST=arm64 ;;
+          esac
+          TMP=$(mktemp -d)
+          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_${HOST}.tar.gz" -o "$TMP/nfpm.tar.gz"
+          tar -xzf "$TMP/nfpm.tar.gz" -C "$TMP" nfpm
+          sudo install -m 0755 "$TMP/nfpm" /usr/local/bin/nfpm
+          rm -rf "$TMP"
+
+      - name: Build the .deb and the .rpm
+        if: matrix.is_linux
+        shell: bash
+        env:
+          PKG_VERSION: ${{ inputs.semver }}
+        run: |
+          mkdir -p stage/server dist
+          cp build/sea/tunlit-server stage/server/tunlit-server
+          chmod +x stage/server/tunlit-server
+
+          PKG_ARCH=${{ matrix.deb_arch }} nfpm pkg \
+            --config packaging/nfpm-server.yaml \
+            --packager deb \
+            --target "dist/tunlit-server_${PKG_VERSION}_${{ matrix.deb_arch }}.deb"
+
+          PKG_ARCH=${{ matrix.rpm_arch }} nfpm pkg \
+            --config packaging/nfpm-server.yaml \
+            --packager rpm \
+            --target "dist/tunlit-server-${PKG_VERSION}-1.${{ matrix.rpm_arch }}.rpm"
+
+      - name: Upload the packages
+        if: matrix.is_linux
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.deb dist/*.rpm --clobber

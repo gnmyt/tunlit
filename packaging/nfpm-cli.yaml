@@ -1,0 +1,37 @@
+name: tunlit-cli
+arch: "${PKG_ARCH}"
+platform: linux
+version: "${PKG_VERSION}"
+section: net
+priority: optional
+maintainer: "Mathias Wagner <mathias@gnm.dev>"
+description: |
+  tunlit CLI - shares a local port through your own tunlit server
+vendor: "tunlit"
+homepage: "https://github.com/gnmyt/tunlit"
+license: "MIT"
+
+overrides:
+  deb:
+    depends:
+      - libc6
+      - libssl3 | libssl1.1
+  rpm:
+    depends:
+      - glibc
+      - openssl-libs
+
+contents:
+  - src: stage/cli/tunlit
+    dst: /usr/bin/tunlit
+    file_info:
+      mode: 0755
+
+  - src: packaging/tunlit.desktop
+    dst: /usr/share/applications/tunlit.desktop
+    file_info:
+      mode: 0644
+
+scripts:
+  postinstall: packaging/scripts/cli-postinstall.sh
+  postremove: packaging/scripts/cli-postremove.sh

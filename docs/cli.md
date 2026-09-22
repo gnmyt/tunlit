@@ -161,15 +161,19 @@ port number; if it is taken you are asked for another one.
 ### Opening links from the browser
 
 The page behind a share link has an **Open in tunlit** button, and so does the tunnel's own page in the web UI.
-Either one hands the link to the CLI on your machine instead of making you copy a command. It needs the scheme
-registered once:
+Either one hands the link to the CLI on your machine instead of making you copy a command.
+
+Install the Debian or RPM package, or the Windows installer, and the scheme is already registered for everyone on
+the machine. Nothing to do.
+
+With a binary you downloaded yourself, claim it once:
 
 ```sh
 tunlit links register     # tunlit:// now opens this CLI
 tunlit links forget       # undo
 ```
 
-What that writes depends on the system, always for your user only, never system-wide:
+That writes for your user only, never system-wide:
 
 | System | Where |
 |---|---|
