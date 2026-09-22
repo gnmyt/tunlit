@@ -1,0 +1,80 @@
+@use "@/common/styles/colors"
+
+.settings-head code
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
+  color: colors.$primary-bright
+
+.devices-empty
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 0.5rem
+
+  svg
+    color: colors.$muted
+    opacity: 0.7
+
+  padding: 1.5rem 1rem
+  text-align: center
+  background-color: colors.$surface-raised
+  border: 1px solid colors.$border
+  border-radius: 0.75rem
+
+  p
+    color: colors.$muted
+    font-size: 0.875rem
+
+.device-list
+  display: flex
+  flex-direction: column
+  gap: 0.375rem
+
+  li
+    display: flex
+    align-items: center
+    gap: 0.75rem
+    padding: 0.625rem 0.5rem 0.625rem 0.875rem
+    background-color: colors.$surface-raised
+    border: 1px solid colors.$border
+    border-radius: 0.75rem
+
+  button
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    flex-shrink: 0
+    width: 1.75rem
+    height: 1.75rem
+    padding: 0
+    background: none
+    border: none
+    border-radius: 0.5rem
+    color: colors.$muted
+    cursor: pointer
+    transition: background-color 0.15s ease, color 0.15s ease
+
+    &:hover
+      background-color: colors.$error-tint
+      color: colors.$error
+
+    svg
+      width: 1rem
+      height: 1rem
+
+.device-main
+  display: flex
+  flex-direction: column
+  gap: 0.15rem
+  min-width: 0
+  flex: 1
+
+.device-name
+  font-size: 0.875rem
+  font-weight: 600
+
+.device-meta
+  color: colors.$muted
+  font-size: 0.75rem
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap

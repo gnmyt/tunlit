@@ -1,0 +1,72 @@
+@use "@/common/styles/colors"
+
+.passkeys
+  display: flex
+  flex-direction: column
+  gap: 0.875rem
+
+.passkeys-unsupported
+  margin: 0
+  color: colors.$muted
+  font-size: 0.8125rem
+
+.passkey-list
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+  li
+    display: flex
+    align-items: center
+    gap: 0.75rem
+    padding: 0.625rem 0.875rem
+    background-color: colors.$surface
+    border: 1px solid colors.$border
+    border-radius: 0.75rem
+
+    > svg
+      flex-shrink: 0
+      color: colors.$primary
+
+    > div
+      display: flex
+      flex-direction: column
+      flex: 1
+      min-width: 0
+
+    > button
+      display: flex
+      align-items: center
+      justify-content: center
+      width: 2rem
+      height: 2rem
+      flex-shrink: 0
+      background: none
+      border: none
+      border-radius: 0.5rem
+      color: colors.$muted
+      cursor: pointer
+
+      svg
+        width: 1rem
+        height: 1rem
+
+      &:hover
+        background-color: colors.$error-tint
+        color: colors.$error
+
+.passkey-name
+  font-size: 0.875rem
+  font-weight: 600
+
+.passkey-meta
+  color: colors.$muted
+  font-size: 0.75rem
+
+.passkey-add
+  display: flex
+  align-items: flex-end
+  gap: 0.5rem
+
+  .field
+    flex: 1

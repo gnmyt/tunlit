@@ -1,0 +1,82 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.settings-layout
+  display: grid
+  grid-template-columns: 11rem 1fr
+  gap: 1.5rem
+  align-items: start
+
+  @media (max-width: breakpoints.$tablet)
+    grid-template-columns: 1fr
+    gap: 1rem
+
+.settings-nav
+  display: flex
+  flex-direction: column
+  gap: 0.125rem
+  position: sticky
+  top: 1.5rem
+
+  @media (max-width: breakpoints.$tablet)
+    position: static
+    flex-direction: row
+    overflow-x: auto
+    padding-bottom: 0.25rem
+
+.settings-nav-item
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  padding: 0.45rem 0.75rem
+  border-radius: 0.625rem
+  color: colors.$muted
+  font-size: 0.875rem
+  font-weight: 500
+  text-decoration: none
+  white-space: nowrap
+  transition: background-color 0.15s ease, color 0.15s ease
+
+  &:hover
+    color: colors.$text
+    background-color: colors.$surface
+
+  &.active
+    color: colors.$text
+    background-color: colors.$surface-hover
+
+.settings-content
+  min-width: 0
+  max-width: 42rem
+
+.settings-panel
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 0.875rem
+  padding: 1.25rem
+
+.settings-head
+  margin-bottom: 1.25rem
+
+  h2
+    font-size: 1.0625rem
+    font-weight: 600
+    letter-spacing: -0.02em
+
+  p
+    margin-top: 0.2rem
+    color: colors.$muted
+    font-size: 0.8125rem
+    line-height: 1.55
+
+.settings-actions
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  margin-top: 1.25rem
+
+  .spacer
+    flex: 1
+
+.settings-content > .settings-panel + .settings-panel
+  margin-top: 1.25rem

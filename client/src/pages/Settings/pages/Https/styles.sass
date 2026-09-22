@@ -1,0 +1,35 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.tls-layout
+  display: grid
+  grid-template-columns: 1fr 1fr
+  gap: 1.5rem
+  align-items: start
+
+  @media (max-width: breakpoints.$tablet)
+    grid-template-columns: 1fr
+
+  .mode-choices
+    grid-template-columns: 1fr
+    align-content: start
+
+.tls-section
+  margin-top: 1.5rem
+
+.tls-note
+  margin: 0
+  color: colors.$muted
+  font-size: 0.8125rem
+  line-height: 1.55
+
+  svg
+    vertical-align: -0.15em
+    margin-right: 0.3rem
+
+  code
+    color: colors.$primary
+
+.tls-inline-action
+  display: flex
+  justify-content: flex-start

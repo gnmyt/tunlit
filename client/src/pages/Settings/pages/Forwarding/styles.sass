@@ -1,0 +1,42 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.forwarding-preview
+  margin-top: 1rem
+  padding: 1rem
+  background-color: colors.$surface-raised
+  border: 1px solid colors.$border
+  border-radius: 0.875rem
+
+  .mode-explainer
+    max-width: none
+    display: grid
+    grid-template-columns: minmax(0, 21rem) 1fr
+    column-gap: 1.25rem
+    align-items: center
+
+    .mode-diagram
+      grid-column: 1
+      grid-row: 1 / span 2
+      align-self: center
+
+    h3
+      grid-column: 2
+      grid-row: 1
+      align-self: end
+      margin-top: 0
+      font-size: 1rem
+
+    ul
+      grid-column: 2
+      grid-row: 2
+      align-self: start
+      margin-top: 0.4rem
+
+  @media (max-width: breakpoints.$mobile)
+    .mode-explainer
+      grid-template-columns: 1fr
+
+      .mode-diagram, h3, ul
+        grid-column: 1
+        grid-row: auto
