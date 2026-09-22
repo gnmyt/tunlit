@@ -1,0 +1,37 @@
+@use "@/common/styles/colors"
+
+.connect-page
+  width: 100%
+
+  .copy-field
+    align-items: flex-start
+
+    code
+      overflow: visible
+      text-overflow: clip
+      white-space: pre-wrap
+      word-break: break-all
+      line-height: 1.5
+
+.connect-hint
+  margin-top: 1rem
+  color: colors.$muted
+  font-size: 0.8125rem
+  line-height: 1.55
+
+  a
+    color: colors.$primary-bright
+    text-decoration: none
+
+    &:hover
+      text-decoration: underline
+
+.connect-command
+  display: flex
+  flex-direction: column
+  gap: 0.375rem
+  margin-top: 1.25rem
+
+  > span
+    color: colors.$muted
+    font-size: 0.75rem
