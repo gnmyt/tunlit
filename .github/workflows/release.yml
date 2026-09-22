@@ -1,0 +1,150 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: "Create Release"
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      previous: ${{ steps.version.outputs.previous }}
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read the version from the tag
+        id: version
+        run: |
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          echo "previous=$(git tag --sort=-creatordate | grep -v "^${GITHUB_REF_NAME}$" | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Open a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && exit 0
+          gh release create "$GITHUB_REF_NAME" \
+            --draft \
+            --title "tunlit ${{ steps.version.outputs.version }}" \
+            --notes "Building the binaries and the image."
+
+  build-cli:
+    name: "Build CLI"
+    needs: create-release
+    uses: ./.github/workflows/build-cli.yml
+    with:
+      version: ${{ needs.create-release.outputs.version }}
+    secrets: inherit
+
+  build-docker:
+    name: "Build Docker"
+    needs: create-release
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      version: ${{ needs.create-release.outputs.version }}
+    secrets: inherit
+
+  publish:
+    name: "Publish Release"
+    needs: [create-release, build-cli, build-docker]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Record the version in the repository
+        env:
+          VERSION: ${{ needs.create-release.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+
+          version = os.environ["VERSION"]
+
+          with open("package.json") as file:
+              manifest = json.load(file)
+          manifest["version"] = version
+          with open("package.json", "w") as file:
+              json.dump(manifest, file, indent=2)
+              file.write("\n")
+
+          manifest = open("cli/Cargo.toml").read()
+          manifest = re.sub(r'^version = "[^"]*"', f'version = "{version}"', manifest, count=1, flags=re.M)
+          open("cli/Cargo.toml", "w").write(manifest)
+
+          lock = open("cli/Cargo.lock").read()
+          lock = re.sub(r'(\[\[package\]\]\nname = "tunlit"\nversion = ")[^"]*"',
+                        lambda match: match.group(1) + version + '"', lock, count=1)
+          open("cli/Cargo.lock", "w").write(lock)
+          PY
+
+      - name: Commit the bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json cli/Cargo.toml cli/Cargo.lock
+          git diff --cached --quiet || (git commit -m "Release ${{ needs.create-release.outputs.version }}" && git push origin HEAD:main)
+
+      - name: Write the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.create-release.outputs.version }}
+          PREVIOUS: ${{ needs.create-release.outputs.previous }}
+        run: |
+          {
+            echo "## Install"
+            echo
+            echo '```sh'
+            echo "docker run -d --name tunlit --restart always -p 127.0.0.1:8080:8080 \\"
+            echo "  -v tunlit-data:/app/data \\"
+            echo "  -e TUNLIT_BASE_DOMAIN=tunlit.example.com \\"
+            echo "  -e TUNLIT_PUBLIC_URL=https://tunlit.example.com \\"
+            echo "  germannewsmaker/tunlit:${VERSION}"
+            echo '```'
+            echo
+            echo "## CLI"
+            echo
+            echo "| Platform | x86-64 | ARM64 |"
+            echo "| :-- | :-- | :-- |"
+            echo "| **Linux** | [tunlit](../../releases/download/v${VERSION}/tunlit-linux-x64) | [tunlit](../../releases/download/v${VERSION}/tunlit-linux-arm64) |"
+            echo "| **macOS** | [tunlit](../../releases/download/v${VERSION}/tunlit-macos-x64) | [tunlit](../../releases/download/v${VERSION}/tunlit-macos-arm64) |"
+            echo "| **Windows** | [tunlit.exe](../../releases/download/v${VERSION}/tunlit-windows-x64.exe) | |"
+            echo
+          } > notes.md
+
+          if [ -n "$PREVIOUS" ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$GITHUB_REF_NAME" -f previous_tag_name="$PREVIOUS" --jq .body >> notes.md
+          fi
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --notes-file notes.md --latest
+
+  cleanup:
+    name: "Clean up a failed release"
+    needs: [create-release, build-cli, build-docker, publish]
+    if: failure()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Delete the draft release and the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
