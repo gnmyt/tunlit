@@ -5,14 +5,7 @@ your local port and the visitors - nothing else runs on your machine.
 
 ## Installation
 
-Download the binary for your platform from the [releases page](https://github.com/gnmyt/tunlit/releases) and put it
-in your `$PATH`, or build it from source (requires Rust):
-
-```sh
-cd cli
-cargo build --release
-cp target/release/tunlit /usr/local/bin/
-```
+`apt`, `dnf`, a Windows installer or a single binary, all in [Installation](/installation).
 
 ## Getting started
 

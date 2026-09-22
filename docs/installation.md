@@ -52,26 +52,57 @@ Prefer a file? Mount a `config.yml` to `/app/data/config.yml` instead of setting
 
 Then open `https://tunlit.example.com/@tunlit` and run the setup wizard, or skip it by mounting a `config.yml`
 with `baseDomain` and `publicUrl` already filled in. Accounts and everything you change in the web UI live in the
-mounted volume (see [Configuration](/configuration#data-directory)).
+mounted volume (see [Configuration](/configuration)).
 
 ## ⌨️ CLI
 
-Grab the binary for your platform from the [releases page](https://github.com/gnmyt/tunlit/releases)
-(`tunlit-linux-x64`, `tunlit-linux-arm64`, `tunlit-macos-arm64`, `tunlit-macos-x64`, `tunlit-windows-x64.exe`), make
-it executable and put it in your `$PATH`:
+### Debian, Ubuntu
 
 ```sh
-curl -Lo tunlit https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-linux-x64
+curl -fsSL https://packages.buildkite.com/tunlit/apt/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/tunlit.gpg
+echo "deb [signed-by=/usr/share/keyrings/tunlit.gpg] https://packages.buildkite.com/tunlit/apt/any/ any main" | sudo tee /etc/apt/sources.list.d/tunlit.list
+sudo apt update
+sudo apt install tunlit-cli
+```
+
+### Fedora, RHEL
+
+```sh
+sudo tee /etc/yum.repos.d/tunlit.repo > /dev/null <<'EOF'
+[tunlit]
+name=tunlit
+baseurl=https://packages.buildkite.com/tunlit/rpm/rpm_any/rpm_any/$basearch
+gpgkey=https://packages.buildkite.com/tunlit/rpm/gpgkey
+repo_gpgcheck=1
+gpgcheck=0
+enabled=1
+EOF
+
+sudo dnf install tunlit-cli
+```
+
+Both repositories carry x86-64 and ARM64, and `apt upgrade` or `dnf upgrade` keeps the CLI current from then on.
+
+### Windows
+
+Download `tunlit-<version>-x64.msi` from the [latest release](https://github.com/gnmyt/tunlit/releases/latest) and
+run it. It installs to `Program Files`, puts `tunlit` on your `PATH` and registers `tunlit://` links, so the
+**Open in tunlit** button on a share page reaches the CLI.
+
+Prefer no installer? `tunlit.exe` is on the same page, or straight from
+<https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-windows-x64.exe>.
+
+### macOS, or any other Linux
+
+One binary, no installer:
+
+```sh
+curl -Lo tunlit https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-macos-arm64
 chmod +x tunlit && sudo mv tunlit /usr/local/bin/
 ```
 
-Or build it from source with Rust:
-
-```sh
-cd cli
-cargo build --release
-cp target/release/tunlit /usr/local/bin/
-```
+Swap the file name for the build you need: `tunlit-macos-arm64`, `tunlit-macos-x64`, `tunlit-linux-x64` or
+`tunlit-linux-arm64`.
 
 Then log in:
 
