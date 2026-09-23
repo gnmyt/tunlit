@@ -1,10 +1,10 @@
 use anyhow::{bail, Context, Result};
-use console::style;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-const SCHEME: &str = "tunlit";
+pub const SCHEME: &str = "tunlit";
+const ICON_SVG: &[u8] = include_bytes!("../../packaging/tunlit.svg");
 
 fn exe() -> Result<String> {
     let path = std::env::current_exe().context("Could not find the tunlit binary")?;
@@ -15,10 +15,16 @@ fn home() -> Result<PathBuf> {
     dirs::home_dir().context("Could not find your home directory")
 }
 
+fn data_dir() -> Result<PathBuf> {
+    dirs::data_dir().context("Could not find your data directory")
+}
+
 fn desktop_file() -> Result<PathBuf> {
-    Ok(dirs::data_dir().context("Could not find your data directory")?
-        .join("applications")
-        .join("tunlit.desktop"))
+    Ok(data_dir()?.join("applications").join("tunlit.desktop"))
+}
+
+fn icon_file() -> Result<PathBuf> {
+    Ok(data_dir()?.join("icons").join("hicolor").join("scalable").join("apps").join("tunlit.svg"))
 }
 
 fn app_bundle() -> Result<PathBuf> {
@@ -26,16 +32,21 @@ fn app_bundle() -> Result<PathBuf> {
 }
 
 fn install_linux() -> Result<PathBuf> {
+    let icon = icon_file()?;
+    fs::create_dir_all(icon.parent().unwrap())?;
+    fs::write(&icon, ICON_SVG)?;
+
     let file = desktop_file()?;
     fs::create_dir_all(file.parent().unwrap())?;
     fs::write(&file, format!(
         "[Desktop Entry]\n\
          Type=Application\n\
          Name=tunlit\n\
-         Comment=Open a tunlit share link\n\
-         Exec={} connect %u\n\
-         Terminal=true\n\
-         NoDisplay=true\n\
+         Comment=Share local ports through your own tunlit server\n\
+         Exec={} gui %u\n\
+         Icon=tunlit\n\
+         Terminal=false\n\
+         Categories=Network;Utility;\n\
          MimeType=x-scheme-handler/{};\n",
         exe()?, SCHEME,
     ))?;
@@ -53,16 +64,15 @@ fn install_macos() -> Result<PathBuf> {
     if bundle.exists() { fs::remove_dir_all(&bundle)?; }
     fs::create_dir_all(bundle.parent().unwrap())?;
 
+    let exe = exe()?;
     let script = std::env::temp_dir().join("tunlit-handler.applescript");
     fs::write(&script, format!(
-        "on open location this_URL\n\
-         \tset cmd to quoted form of \"{}\" & \" connect \" & quoted form of this_URL\n\
-         \ttell application \"Terminal\"\n\
-         \t\tactivate\n\
-         \t\tdo script cmd\n\
-         \tend tell\n\
+        "on run\n\
+         \tdo shell script quoted form of \"{exe}\" & \" gui > /dev/null 2>&1 &\"\n\
+         end run\n\
+         on open location this_URL\n\
+         \tdo shell script quoted form of \"{exe}\" & \" gui \" & quoted form of this_URL & \" > /dev/null 2>&1 &\"\n\
          end open location\n",
-        exe()?,
     ))?;
 
     let status = Command::new("osacompile")
@@ -91,11 +101,13 @@ fn install_macos() -> Result<PathBuf> {
 
 fn install_windows() -> Result<PathBuf> {
     let key = format!("HKCU\\Software\\Classes\\{SCHEME}");
-    let command = format!("cmd.exe /k \"\"{}\" connect \"%1\"\"", exe()?);
+    let exe = exe()?;
+    let command = format!("\"{exe}\" gui \"%1\"");
 
     for args in [
         vec![key.clone(), "/ve".into(), "/d".into(), format!("URL:{SCHEME}"), "/f".into()],
         vec![key.clone(), "/v".into(), "URL Protocol".into(), "/d".into(), String::new(), "/f".into()],
+        vec![format!("{key}\\DefaultIcon"), "/ve".into(), "/d".into(), format!("{exe},0"), "/f".into()],
         vec![format!("{key}\\shell\\open\\command"), "/ve".into(), "/d".into(), command.clone(), "/f".into()],
     ] {
         let status = Command::new("reg").arg("add").args(&args).status()
@@ -105,21 +117,16 @@ fn install_windows() -> Result<PathBuf> {
     Ok(PathBuf::from(key))
 }
 
-pub fn install() -> Result<()> {
-    let where_ = if cfg!(target_os = "macos") {
-        install_macos()?
+pub fn install() -> Result<PathBuf> {
+    if cfg!(target_os = "macos") {
+        install_macos()
     } else if cfg!(target_os = "windows") {
-        install_windows()?
+        install_windows()
     } else if cfg!(target_os = "linux") {
-        install_linux()?
+        install_linux()
     } else {
-        bail!("tunlit does not know how to register links on this system");
-    };
-
-    println!("{} {} links now open in this tunlit", style("✓").green().bold(), style(format!("{SCHEME}://")).cyan().bold());
-    println!("  {}", style(where_.to_string_lossy()).dim());
-    println!("  Your browser will ask before it opens one.");
-    Ok(())
+        bail!("tunlit does not know how to register links on this system")
+    }
 }
 
 pub fn remove() -> Result<()> {
@@ -133,11 +140,11 @@ pub fn remove() -> Result<()> {
     } else {
         let file = desktop_file()?;
         if file.exists() { fs::remove_file(&file)?; }
+        let icon = icon_file()?;
+        if icon.exists() { let _ = fs::remove_file(&icon); }
         let _ = Command::new("update-desktop-database")
             .arg(file.parent().unwrap().to_string_lossy().to_string())
             .status();
     }
-
-    println!("{} {} links are no longer handled by tunlit", style("✓").green().bold(), style(format!("{SCHEME}://")).bold());
     Ok(())
 }

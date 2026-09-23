@@ -1,6 +1,4 @@
 use anyhow::{bail, Context, Result};
-use console::style;
-use indicatif::{ProgressBar, ProgressStyle};
 use serde_json::json;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -10,8 +8,8 @@ use tokio::net::TcpStream;
 use crate::api::ws_url;
 use crate::config::Config;
 use crate::mux::{expect, Mux, MuxEvents, OpenMeta};
-use crate::qr;
 use crate::serve;
+use crate::session::{Events, Online, Request, Stop, TunnelEvent};
 use crate::tcp::{pump_tcp, pump_udp_owner};
 
 pub const PROTOCOL_VERSION: u64 = 1;
@@ -125,12 +123,14 @@ impl Access {
 
 pub struct Options { pub mode: &'static str, pub target: TargetSpec, pub name: Option<String>, pub keep_host: bool, pub access: Access }
 
-pub fn spinner(message: &str) -> ProgressBar {
-    let spinner = ProgressBar::new_spinner();
-    spinner.set_style(ProgressStyle::default_spinner().template("{spinner:.green} {msg}").unwrap());
-    spinner.set_message(message.to_string());
-    spinner.enable_steady_tick(Duration::from_millis(100));
-    spinner
+impl Options {
+    pub fn http(target: TargetSpec, name: Option<String>, keep_host: bool, access: Access) -> Self {
+        Self { mode: "http", target, name, keep_host, access }
+    }
+
+    pub fn tcp(target: Target, name: Option<String>, access: Access) -> Self {
+        Self { mode: "tcp", target: TargetSpec::Addr(target), name, keep_host: false, access }
+    }
 }
 
 pub fn server_hello(role: &str, token: Option<&str>) -> serde_json::Value {
@@ -139,7 +139,7 @@ pub fn server_hello(role: &str, token: Option<&str>) -> serde_json::Value {
     hello
 }
 
-struct Registration { id: String, url: Option<String>, share_code: Option<String>, connect_url: Option<String>, resume_token: String }
+struct Registration { online: Online, resume_token: String }
 
 async fn register(url: &str, token: &str, accept_invalid_certs: bool, opts: &Options, target: &Target, resume: Option<&str>) -> Result<(Arc<Mux>, MuxEvents, Registration)> {
     let (mux, mut events) = Mux::connect(url, Some(token), accept_invalid_certs).await?;
@@ -156,38 +156,15 @@ async fn register(url: &str, token: &str, accept_invalid_certs: bool, opts: &Opt
     let msg = expect(&mut events, "registered").await?;
     let get = |key: &str| msg.get(key).and_then(|v| v.as_str()).map(|s| s.to_string());
     let registration = Registration {
-        id: get("id").context("registered without id")?,
-        url: get("url"),
-        share_code: get("shareCode"),
-        connect_url: get("connectUrl"),
+        online: Online {
+            id: get("id").context("registered without id")?,
+            url: get("url"),
+            share_code: get("shareCode"),
+            connect_url: get("connectUrl"),
+        },
         resume_token: get("resumeToken").context("registered without resume token")?,
     };
     Ok((mux, events, registration))
-}
-
-fn print_ready(reg: &Registration, target: &Target, label: &str, server_url: &str, resumed: bool, access: &Access) {
-    if resumed {
-        println!("{} Reconnected, tunnel {} is back online", style("✓").green().bold(), style(&reg.id).cyan());
-        return;
-    }
-    println!("{} Tunnel {} is online", style("✓").green().bold(), style(&reg.id).cyan().bold());
-    if let Some(url) = &reg.url {
-        println!("  {}  {}  {}", style(url).cyan().bold().underlined(), style("→").dim(), style(label).bold());
-        println!();
-        qr::print(url);
-        qr::copy(url);
-    } else if let Some(code) = &reg.share_code {
-        let link = reg.connect_url.clone().unwrap_or_else(|| format!("{server_url}/@tunlit/connect/{code}"));
-        println!("  Forwarding {} (tcp+udp)", style(target.label()).bold());
-        println!("  Others run: {}", style(format!("tunlit connect {link}")).cyan().bold());
-        println!();
-        qr::print(&link);
-        qr::copy(&format!("tunlit connect {link}"));
-    }
-    if let Some(summary) = access.summary() {
-        println!("  {} {}", style("Access:").dim(), style(summary).yellow());
-    }
-    println!("Press {} to stop.", style("Ctrl+C").bold());
 }
 
 enum Ended {
@@ -196,7 +173,7 @@ enum Ended {
     ByServer(String),
 }
 
-async fn serve_streams(events: &mut MuxEvents, target: &Target) -> Ended {
+async fn serve_streams(events: &mut MuxEvents, target: &Target, out: &Events<TunnelEvent>) -> Ended {
     loop {
         tokio::select! {
             stream = events.streams.recv() => {
@@ -209,29 +186,12 @@ async fn serve_streams(events: &mut MuxEvents, target: &Target) -> Ended {
                 Some(msg) => match msg.get("type").and_then(|t| t.as_str()) {
                     Some("error") => return Ended::Error(msg.get("message").and_then(|m| m.as_str()).unwrap_or("unknown error").to_string()),
                     Some("bye") => return Ended::ByServer(msg.get("reason").and_then(|r| r.as_str()).unwrap_or("closed by the server").to_string()),
-                    Some("request") => print_request(&msg),
+                    Some("request") => { let _ = out.send(TunnelEvent::Request(Request::from_control(&msg))); }
                     _ => {}
                 },
             }
         }
     }
-}
-
-fn print_request(message: &serde_json::Value) {
-    let field = |key: &str| message.get(key).and_then(|value| value.as_str()).unwrap_or("").to_string();
-    let status = message.get("status").and_then(|value| value.as_u64()).unwrap_or(0);
-    let duration = message.get("duration").and_then(|value| value.as_u64()).unwrap_or(0);
-    let method = field("method");
-    let path = field("path");
-
-    let coloured_status = match status {
-        200..=299 => style(status).green(),
-        300..=399 => style(status).cyan(),
-        400..=499 => style(status).yellow(),
-        _ => style(status).red(),
-    };
-    let label = if field("kind") == "ws" { style("WS ").magenta().to_string() } else { style(format!("{method:<4}")).bold().to_string() };
-    println!("{} {} {} {}", label, coloured_status.bold(), style(path).dim(), style(format!("{duration}ms")).dim());
 }
 
 async fn connect_target(addrs: &[SocketAddr]) -> Result<TcpStream> {
@@ -262,71 +222,79 @@ async fn handle_stream(writer: crate::mux::MuxWriter, reader: crate::mux::MuxRea
     }
 }
 
-pub async fn run(opts: Options) -> Result<()> {
-    let cfg = Config::load()?;
-    let (server_url, token) = cfg.require_auth()?;
-    let url = ws_url(&server_url);
-
-    let (target, label) = match &opts.target {
-        TargetSpec::Addr(target) => (target.clone(), target.label()),
+pub async fn prepare(opts: &Options) -> Result<(Target, String)> {
+    match &opts.target {
+        TargetSpec::Addr(target) => Ok((target.clone(), target.label())),
         TargetSpec::Dir(dir) => {
             if opts.mode == "tcp" { bail!("`tunlit tcp` needs a port or host:port, not a directory"); }
             let port = serve::start(dir.clone()).await?;
             let shown = if dir == Path::new(".") { std::env::current_dir().map(|d| d.display().to_string()).unwrap_or_else(|_| ".".into()) } else { dir.display().to_string() };
-            (Target { host: "127.0.0.1".into(), port, tls: false }, format!("{shown} (static files)"))
+            Ok((Target { host: "127.0.0.1".into(), port, tls: false }, format!("{shown} (static files)")))
         }
-    };
+    }
+}
 
-    let spin = spinner("Connecting to server...");
-    let first = register(&url, &token, cfg.accept_invalid_certs, &opts, &target, None).await;
-    spin.finish_and_clear();
+fn is_fatal(text: &str) -> bool {
+    text.contains("(unauthorized)") || text.contains("(invalid_name)") || text.contains("(name_taken)")
+}
+
+pub async fn run(opts: Options, target: Target, out: Events<TunnelEvent>, mut stop: Stop) -> Result<()> {
+    let cfg = Config::load()?;
+    let (server_url, token) = cfg.require_auth()?;
+    let url = ws_url(&server_url);
+
+    let _ = out.send(TunnelEvent::Connecting);
+    let first = tokio::select! {
+        result = register(&url, &token, cfg.accept_invalid_certs, &opts, &target, None) => result,
+        _ = stop.wait() => return Ok(()),
+    };
     let (mut mux, mut events, mut reg) = first?;
-    print_ready(&reg, &target, &label, &server_url, false, &opts.access);
+    let _ = out.send(TunnelEvent::Online(reg.online.clone()));
 
     let mut backoff = 1u64;
     loop {
         let outcome = tokio::select! {
-            result = serve_streams(&mut events, &target) => result,
-            _ = tokio::signal::ctrl_c() => {
+            result = serve_streams(&mut events, &target, &out) => result,
+            _ = stop.wait() => {
                 let _ = mux.send_control(json!({ "type": "bye" })).await;
                 mux.close().await;
-                println!("\n{} Tunnel closed", style("✓").green().bold());
+                let _ = out.send(TunnelEvent::Stopped);
                 return Ok(());
             }
         };
         match outcome {
             Ended::Error(message) => bail!("Server error: {message}"),
             Ended::ByServer(reason) => {
-                println!("{} Tunnel ended: {}", style("✓").green().bold(), style(reason).dim());
+                let _ = out.send(TunnelEvent::Ended(reason));
                 return Ok(());
             }
             Ended::Dropped => {}
         }
 
-        let spin = spinner("Connection lost, reconnecting...");
+        let mut reason = None;
         loop {
+            let _ = out.send(TunnelEvent::Reconnecting { seconds: backoff, reason: reason.take() });
             tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(backoff)) => {}
-                _ = tokio::signal::ctrl_c() => { spin.finish_and_clear(); println!("{} Stopped", style("✓").green().bold()); return Ok(()); }
+                _ = stop.wait() => { let _ = out.send(TunnelEvent::Stopped); return Ok(()); }
             }
-            match register(&url, &token, cfg.accept_invalid_certs, &opts, &target, Some(&reg.resume_token)).await {
+            let attempt = tokio::select! {
+                result = register(&url, &token, cfg.accept_invalid_certs, &opts, &target, Some(&reg.resume_token)) => result,
+                _ = stop.wait() => { let _ = out.send(TunnelEvent::Stopped); return Ok(()); }
+            };
+            match attempt {
                 Ok((new_mux, new_events, new_reg)) => {
-                    spin.finish_and_clear();
-                    let same = new_reg.id == reg.id;
+                    let same = new_reg.online.id == reg.online.id;
                     mux = new_mux; events = new_events; reg = new_reg;
-                    if same { print_ready(&reg, &target, &label, &server_url, true, &opts.access); }
-                    else {
-                        println!("{} The old tunnel expired, a new one was created", style("!").yellow().bold());
-                        print_ready(&reg, &target, &label, &server_url, false, &opts.access);
-                    }
+                    let _ = out.send(if same { TunnelEvent::Resumed(reg.online.clone()) } else { TunnelEvent::Replaced(reg.online.clone()) });
                     backoff = 1;
                     break;
                 }
                 Err(err) => {
                     let text = err.to_string();
-                    if text.contains("(unauthorized)") || text.contains("(invalid_name)") || text.contains("(name_taken)") { spin.finish_and_clear(); bail!("{text}"); }
+                    if is_fatal(&text) { bail!("{text}"); }
                     backoff = (backoff * 2).min(30);
-                    spin.set_message(format!("Reconnecting in {backoff}s... ({text})"));
+                    reason = Some(text);
                 }
             }
         }

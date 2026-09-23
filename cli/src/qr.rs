@@ -1,4 +1,3 @@
-use console::style;
 use qrcode::render::unicode;
 use qrcode::QrCode;
 
@@ -8,7 +7,6 @@ pub fn print(text: &str) {
     for line in rendered.lines() { println!("  {line}"); }
 }
 
-pub fn copy(text: &str) {
-    let copied = arboard::Clipboard::new().and_then(|mut clip| clip.set_text(text.to_string())).is_ok();
-    if copied { println!("{} Copied to clipboard", style("✓").green().bold()); }
+pub fn copy(text: &str) -> bool {
+    arboard::Clipboard::new().and_then(|mut clip| clip.set_text(text.to_string())).is_ok()
 }

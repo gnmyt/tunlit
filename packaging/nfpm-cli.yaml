@@ -32,6 +32,16 @@ contents:
     file_info:
       mode: 0644
 
+  - src: packaging/tunlit.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/tunlit.svg
+    file_info:
+      mode: 0644
+
+  - src: packaging/tunlit.png
+    dst: /usr/share/icons/hicolor/256x256/apps/tunlit.png
+    file_info:
+      mode: 0644
+
 scripts:
   postinstall: packaging/scripts/cli-postinstall.sh
   postremove: packaging/scripts/cli-postremove.sh

@@ -87,8 +87,8 @@ Both repositories carry x86-64 and ARM64, and `apt upgrade` or `dnf upgrade` kee
 
 Download and run
 [tunlit-x64.msi](https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-x64.msi). It installs to
-`Program Files`, puts `tunlit` on your `PATH` and registers `tunlit://` links, so the **Open in tunlit** button on
-a share page reaches the CLI.
+`Program Files`, puts `tunlit` on your `PATH`, adds **tunlit** to the Start menu and registers `tunlit://` links,
+so the **Open in tunlit** button on a share page opens the desktop app.
 
 Prefer no installer?
 [tunlit.exe](https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-windows-x64.exe) is the same binary
@@ -111,5 +111,8 @@ Then log in:
 ```sh
 tunlit login
 ```
+
+Or open the desktop app with `tunlit gui` and link the device there. `tunlit links register` makes `tunlit://`
+links open in it.
 
 Continue with the [CLI guide](/cli).
