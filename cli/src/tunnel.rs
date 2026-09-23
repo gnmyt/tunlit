@@ -11,6 +11,7 @@ use crate::mux::{expect, Mux, MuxEvents, OpenMeta};
 use crate::router::{self, Route, RouteTarget};
 use crate::serve;
 use crate::session::{Events, Online, Request, Stop, TunnelEvent};
+use crate::shape::Shape;
 use crate::tcp::{pump_tcp, pump_udp_owner};
 
 pub const PROTOCOL_VERSION: u64 = 1;
@@ -139,15 +140,19 @@ impl Access {
     }
 }
 
-pub struct Options { pub mode: &'static str, pub target: TargetSpec, pub name: Option<String>, pub keep_host: bool, pub access: Access }
+pub struct Options { pub mode: &'static str, pub target: TargetSpec, pub name: Option<String>, pub keep_host: bool, pub access: Access, pub shape: Shape }
 
 impl Options {
     pub fn http(target: TargetSpec, name: Option<String>, keep_host: bool, access: Access) -> Self {
-        Self { mode: "http", target, name, keep_host, access }
+        Self { mode: "http", target, name, keep_host, access, shape: Shape::default() }
     }
 
     pub fn tcp(target: Target, name: Option<String>, access: Access) -> Self {
-        Self { mode: "tcp", target: TargetSpec::Addr(target), name, keep_host: false, access }
+        Self { mode: "tcp", target: TargetSpec::Addr(target), name, keep_host: false, access, shape: Shape::default() }
+    }
+
+    pub fn shaped(self, shape: Shape) -> Self {
+        Self { shape, ..self }
     }
 }
 
@@ -193,13 +198,14 @@ enum Ended {
     ByServer(String),
 }
 
-async fn serve_streams(events: &mut MuxEvents, target: &Target, out: &Events<TunnelEvent>) -> Ended {
+async fn serve_streams(events: &mut MuxEvents, target: &Target, shape: &Shape, out: &Events<TunnelEvent>) -> Ended {
     loop {
         tokio::select! {
             stream = events.streams.recv() => {
                 let Some((writer, reader, meta)) = stream else { return Ended::Dropped };
                 let target = target.clone();
-                tokio::spawn(async move { handle_stream(writer, reader, meta, target).await; });
+                let shape = shape.clone();
+                tokio::spawn(async move { handle_stream(writer, reader, meta, target, shape).await; });
             }
             control = events.control.recv() => match control {
                 None => return Ended::Dropped,
@@ -226,18 +232,18 @@ pub async fn connect_target(addrs: &[SocketAddr]) -> Result<TcpStream> {
     Err(last)
 }
 
-async fn handle_stream(writer: crate::mux::MuxWriter, reader: crate::mux::MuxReader, meta: OpenMeta, target: Target) {
+async fn handle_stream(writer: crate::mux::MuxWriter, reader: crate::mux::MuxReader, meta: OpenMeta, target: Target, shape: Shape) {
     let Ok(addrs) = target.resolve().await else { writer.reset(); return };
     if meta.is_udp() {
-        if pump_udp_owner(addrs[0], writer, reader).await.is_err() { /* stream was reset on error */ }
+        let _ = pump_udp_owner(addrs[0], writer, reader, &shape).await;
         return;
     }
     let Ok(socket) = connect_target(&addrs).await else { writer.reset(); return };
-    if !target.tls { return pump_tcp(socket, writer, reader).await; }
+    if !target.tls { return pump_tcp(socket, writer, reader, &shape).await; }
 
     let handshake = async { target.tls_connector()?.connect(&target.host, socket).await.map_err(anyhow::Error::from) };
     match tokio::time::timeout(CONNECT_TIMEOUT, handshake).await {
-        Ok(Ok(stream)) => pump_tcp(stream, writer, reader).await,
+        Ok(Ok(stream)) => pump_tcp(stream, writer, reader, &shape).await,
         _ => writer.reset(),
     }
 }
@@ -279,7 +285,7 @@ pub async fn run(opts: Options, target: Target, out: Events<TunnelEvent>, mut st
     let mut backoff = 1u64;
     loop {
         let outcome = tokio::select! {
-            result = serve_streams(&mut events, &target, &out) => result,
+            result = serve_streams(&mut events, &target, &opts.shape, &out) => result,
             _ = stop.wait() => {
                 let _ = mux.send_control(json!({ "type": "bye" })).await;
                 mux.close().await;

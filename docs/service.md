@@ -31,6 +31,7 @@ tunnels:
 | `serve`                      | A directory to serve.                           |
 | `tcp`                        | A port or `host:port`, shared with a code.      |
 | `routes`                     | Prefix to port, `host:port` or directory, see [Routing by path](/cli#routing-by-path). |
+| `shape`                      | `latency`, `jitter`, `bandwidth`, `loss`, see [Simulating a bad connection](/cli#simulating-a-bad-connection). |
 | `keep_host`                  | Send the public hostname as `Host` (HTTP only). |
 | `allow`                      | Allowed addresses or CIDR ranges.               |
 | `password` / `require_login` | Sign-in for visitors (HTTP only).               |

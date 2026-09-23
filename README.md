@@ -27,7 +27,10 @@
 - **HTTP tunnels** with a public URL, either `https://<id>.example.com` or `https://example.com/@<id>`
 - **TCP and UDP tunnels** for anything that is not HTTP, like a database or a game server
 - **Share a port** with someone who has no account: they get a link, the port appears on their machine
-- **Live traffic** per tunnel, with request and response bodies you can read in the browser
+- **Live traffic** per tunnel, with request and response bodies you can read and replay in the browser
+- **Bad network on demand**: add latency, jitter, a bandwidth cap or packet loss to any tunnel to see how your app copes
+- **Persistent names** that stay yours, with your own domains on top
+- **Route by path**: `/api` to one port, `/docs` to a folder, the rest to your app, all on one tunnel
 - **Protect a tunnel** with a password, a tunlit account, or an IP allowlist
 - **Accounts** for your team, with TOTP, passkeys and OIDC single sign-on
 - **HTTPS** either behind your own proxy or with certificates tunlit gets from Let's Encrypt itself

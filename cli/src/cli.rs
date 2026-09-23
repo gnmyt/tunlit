@@ -10,6 +10,7 @@ use crate::config::Config;
 use crate::connect;
 use crate::qr;
 use crate::session::{self, Events, JoinEvent, Online, Request, Stop, TunnelEvent};
+use crate::shape::Shape;
 use crate::tunnel::{self, Access, Options};
 
 fn ok() -> console::StyledObject<&'static str> { style("✓").green().bold() }
@@ -69,7 +70,7 @@ async fn printed<E: Send + 'static>(
     result
 }
 
-fn print_ready(online: &Online, target_label: &str, server_url: &str, access: &Access) {
+fn print_ready(online: &Online, target_label: &str, server_url: &str, access: &Access, shape: &Shape) {
     let kind = if online.persistent { style(" (persistent)").dim().to_string() } else { String::new() };
     println!("{} Tunnel {} is online{kind}", ok(), style(&online.id).cyan().bold());
     if let Some(url) = &online.url {
@@ -90,6 +91,9 @@ fn print_ready(online: &Online, target_label: &str, server_url: &str, access: &A
     if let Some(summary) = access.summary() {
         println!("  {} {}", style("Access:").dim(), style(summary).yellow());
     }
+    if let Some(summary) = shape.summary() {
+        println!("  {} {}", style("Network:").dim(), style(summary).yellow());
+    }
     println!("Press {} to stop.", style("Ctrl+C").bold());
 }
 
@@ -109,16 +113,17 @@ pub async fn tunnel(opts: Options) -> Result<()> {
     let (server_url, _) = cfg.require_auth()?;
     let (opts, target, label) = tunnel::prepare(opts).await?;
     let access = opts.access.clone();
+    let shape = opts.shape.clone();
     let (events, rx, stop) = session();
 
     printed(rx, move |printer, event| match event {
         TunnelEvent::Connecting => printer.busy("Connecting to server...".into()),
-        TunnelEvent::Online(online) => { printer.idle(); print_ready(&online, &label, &server_url, &access); }
+        TunnelEvent::Online(online) => { printer.idle(); print_ready(&online, &label, &server_url, &access, &shape); }
         TunnelEvent::Resumed(online) => { printer.idle(); println!("{} Reconnected, tunnel {} is back online", ok(), style(&online.id).cyan()); }
         TunnelEvent::Replaced(online) => {
             printer.idle();
             println!("{} The old tunnel expired, a new one was created", warn());
-            print_ready(&online, &label, &server_url, &access);
+            print_ready(&online, &label, &server_url, &access, &shape);
         }
         TunnelEvent::Request(request) => print_request(&request),
         TunnelEvent::Reconnecting { seconds, reason } => printer.reconnecting(seconds, reason),

@@ -9,6 +9,7 @@ use crate::api::ws_url;
 use crate::config::{normalize_url, Config};
 use crate::mux::{expect, Incoming, Mux, MuxEvents, MuxWriter, OpenMeta};
 use crate::session::{Events, JoinEvent, Stop};
+use crate::shape::Shape;
 use crate::tcp::{pump_tcp, UDP_IDLE};
 use crate::tunnel::server_hello;
 
@@ -230,7 +231,7 @@ async fn accept_tcp(listener: TcpListener, current: Current) {
         let Some(mux) = mux else { drop(socket); continue };
         tokio::spawn(async move {
             match mux.open(&OpenMeta::tcp(peer.to_string())).await {
-                Ok((writer, reader)) => pump_tcp(socket, writer, reader).await,
+                Ok((writer, reader)) => pump_tcp(socket, writer, reader, &Shape::default()).await,
                 Err(_) => drop(socket),
             }
         });

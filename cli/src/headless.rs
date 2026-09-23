@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use tokio::sync::mpsc::UnboundedReceiver;
 use crate::config::Config;
 use crate::session::{self, Stop, StopHandle, TunnelEvent};
+use crate::shape::Shape;
 use crate::router::{Route, RouteTarget};
 use crate::tunnel::{self, Access, Options, Target, TargetSpec};
 
@@ -19,21 +20,38 @@ struct Manifest {
 
 #[derive(Deserialize)]
 #[serde(untagged)]
-enum Endpoint { Port(u16), Text(String) }
+enum Scalar { Number(f64), Text(String) }
 
-impl Endpoint {
+impl Scalar {
     fn text(&self) -> String {
-        match self { Self::Port(port) => port.to_string(), Self::Text(text) => text.clone() }
+        match self { Self::Number(value) => value.to_string(), Self::Text(text) => text.clone() }
+    }
+}
+
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+struct ShapeSpec {
+    latency: Option<Scalar>,
+    jitter: Option<Scalar>,
+    bandwidth: Option<Scalar>,
+    loss: Option<Scalar>,
+}
+
+impl ShapeSpec {
+    fn shape(&self) -> Result<Shape> {
+        let text = |value: &Option<Scalar>| value.as_ref().map(Scalar::text);
+        Shape::parse(text(&self.latency).as_deref(), text(&self.jitter).as_deref(), text(&self.bandwidth).as_deref(), text(&self.loss).as_deref())
     }
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Entry {
-    http: Option<Endpoint>,
+    http: Option<Scalar>,
     serve: Option<PathBuf>,
-    tcp: Option<Endpoint>,
-    #[serde(default)] routes: BTreeMap<String, Endpoint>,
+    tcp: Option<Scalar>,
+    #[serde(default)] routes: BTreeMap<String, Scalar>,
+    #[serde(default)] shape: ShapeSpec,
     #[serde(default)] keep_host: bool,
     #[serde(default)] allow: Vec<String>,
     password: Option<String>,
@@ -43,18 +61,19 @@ struct Entry {
 impl Entry {
     fn options(self, name: &str) -> Result<Options> {
         let access = Access::new(self.allow, self.password, self.require_login)?;
+        let shape = self.shape.shape().with_context(|| name.to_string())?;
         let id = Some(name.to_string());
         let root = match (self.http, self.serve, self.tcp) {
             (Some(http), None, None) => RouteTarget::Addr(Target::parse(&http.text())?),
             (None, Some(dir), None) => RouteTarget::dir(&dir.to_string_lossy())?,
             (None, None, Some(tcp)) => {
                 if !self.routes.is_empty() { bail!("{name}: routes only work with http or serve"); }
-                return Ok(Options::tcp(Target::parse(&tcp.text())?, id, access));
+                return Ok(Options::tcp(Target::parse(&tcp.text())?, id, access).shaped(shape));
             }
             _ => bail!("{name}: set exactly one of http, serve or tcp"),
         };
         let routes = self.routes.into_iter().map(|(prefix, endpoint)| Route::new(&prefix, RouteTarget::parse(&endpoint.text())?)).collect::<Result<_>>()?;
-        Ok(Options::http(TargetSpec::routed(root, routes)?, id, self.keep_host, access))
+        Ok(Options::http(TargetSpec::routed(root, routes)?, id, self.keep_host, access).shaped(shape))
     }
 }
 

@@ -13,6 +13,7 @@ mod router;
 mod serve;
 mod service;
 mod session;
+mod shape;
 mod tcp;
 mod tunnel;
 
@@ -39,6 +40,7 @@ enum Commands {
         #[arg(long = "allow", value_name = "CIDR")] allow: Vec<String>,
         #[arg(long, value_name = "PASSWORD")] password: Option<String>,
         #[arg(long)] require_login: bool,
+        #[command(flatten)] shape: ShapeArgs,
     },
     Serve {
         #[arg(default_value = ".")] dir: String,
@@ -46,11 +48,13 @@ enum Commands {
         #[arg(long = "allow", value_name = "CIDR")] allow: Vec<String>,
         #[arg(long, value_name = "PASSWORD")] password: Option<String>,
         #[arg(long)] require_login: bool,
+        #[command(flatten)] shape: ShapeArgs,
     },
     Tcp {
         target: String,
         #[arg(short, long)] name: Option<String>,
         #[arg(long = "allow", value_name = "CIDR")] allow: Vec<String>,
+        #[command(flatten)] shape: ShapeArgs,
     },
     Connect {
         target: String,
@@ -77,6 +81,20 @@ enum Commands {
         #[command(subcommand)]
         action: LinkAction,
     },
+}
+
+#[derive(clap::Args)]
+struct ShapeArgs {
+    #[arg(long, value_name = "DURATION")] latency: Option<String>,
+    #[arg(long, value_name = "DURATION")] jitter: Option<String>,
+    #[arg(long, value_name = "RATE")] bandwidth: Option<String>,
+    #[arg(long, value_name = "PERCENT")] loss: Option<String>,
+}
+
+impl ShapeArgs {
+    fn parse(&self) -> anyhow::Result<shape::Shape> {
+        shape::Shape::parse(self.latency.as_deref(), self.jitter.as_deref(), self.bandwidth.as_deref(), self.loss.as_deref())
+    }
 }
 
 #[derive(Subcommand)]
@@ -120,12 +138,12 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Commands::Login => cli::login().await,
         Commands::Logout => cli::logout(),
-        Commands::Http { target, name, route, keep_host, allow, password, require_login } =>
-            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::with_routes(&target, &route)?, name, keep_host, tunnel::Access::new(allow, password, require_login)?)).await,
-        Commands::Serve { dir, name, allow, password, require_login } =>
-            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::dir(&dir)?, name, false, tunnel::Access::new(allow, password, require_login)?)).await,
-        Commands::Tcp { target, name, allow } =>
-            cli::tunnel(tunnel::Options::tcp(tunnel::Target::parse(&target)?, name, tunnel::Access::new(allow, None, false)?)).await,
+        Commands::Http { target, name, route, keep_host, allow, password, require_login, shape } =>
+            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::with_routes(&target, &route)?, name, keep_host, tunnel::Access::new(allow, password, require_login)?).shaped(shape.parse()?)).await,
+        Commands::Serve { dir, name, allow, password, require_login, shape } =>
+            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::dir(&dir)?, name, false, tunnel::Access::new(allow, password, require_login)?).shaped(shape.parse()?)).await,
+        Commands::Tcp { target, name, allow, shape } =>
+            cli::tunnel(tunnel::Options::tcp(tunnel::Target::parse(&target)?, name, tunnel::Access::new(allow, None, false)?).shaped(shape.parse()?)).await,
         Commands::Connect { target, port, bind, server } => cli::connect(target, port, bind, server).await,
         Commands::Start { config } => headless::run(config).await,
         Commands::Service { action } => match action {

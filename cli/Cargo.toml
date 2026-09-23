@@ -25,6 +25,7 @@ hyper = { version = "1", features = ["http1", "server", "client"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
 bytes = "1"
+fastrand = "2"
 dialoguer = "0.12"
 console = "0.16"
 dirs = "7"

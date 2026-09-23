@@ -80,7 +80,43 @@ tunlit http 3000 --route /api=4000 --route /docs=./site
 
 The positional target takes everything that matches no route; the longest matching prefix wins. Ports and
 `host:port` targets receive the full path, directories are mounted at their prefix (`/docs/guide.html` serves
-`./site/guide.html`).
+`./site/guide.html`). In `tunnels.yml`:
+
+```yaml
+tunnels:
+  shop:
+    http: 3000
+    routes:
+      /api: 4000
+      /docs: ./site
+```
+
+### Simulating a bad connection
+
+```sh
+tunlit http 3000 --latency 200ms --jitter 50ms --bandwidth 512kbps --loss 2%
+tunlit tcp 27015 --latency 80ms --loss 5%
+```
+
+| Flag                   | Description                                                                  |
+|------------------------|------------------------------------------------------------------------------|
+| `--latency <duration>` | Added in each direction, `200ms` or `1s`.                                    |
+| `--jitter <duration>`  | Random extra delay, 0 to this value.                                         |
+| `--bandwidth <rate>`   | Cap per direction, `512kbps`, `2mbps` or `100kB/s`.                          |
+| `--loss <percent>`     | UDP datagrams are dropped; TCP data stalls instead, like a retransmit would. |
+
+Applies between the CLI and your app, so every mode is covered. In `tunnels.yml` for [`tunlit start`](/service):
+
+```yaml
+tunnels:
+  shop:
+    http: 3000
+    shape:
+      latency: 200ms
+      jitter: 50ms
+      bandwidth: 512kbps
+      loss: 2
+```
 
 ### Protecting a tunnel
 
@@ -93,11 +129,11 @@ tunlit serve --allow 10.0.0.0/8              # only this range may connect
 tunlit tcp 25565 --allow 203.0.113.5         # same, for a direct tcp tunnel
 ```
 
-| Flag | Description |
-|---|---|
-| `--allow <cidr>` | Repeatable. A single address or a CIDR range. With none set, anyone may connect. Applies to every mode, including who may use a `tunlit tcp` share code. |
-| `--password <password>` | HTTP tunnels only. Visitors get a password prompt; scripts can use `curl -u any:<password>`. |
-| `--require-login` | HTTP tunnels only. Visitors sign in with the tunlit admin account. |
+| Flag                    | Description                                                                                                                                              |
+|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--allow <cidr>`        | Repeatable. A single address or a CIDR range. With none set, anyone may connect. Applies to every mode, including who may use a `tunlit tcp` share code. |
+| `--password <password>` | HTTP tunnels only. Visitors get a password prompt; scripts can use `curl -u any:<password>`.                                                             |
+| `--require-login`       | HTTP tunnels only. Visitors sign in with the tunlit admin account.                                                                                       |
 
 `--password` and `--require-login` are mutually exclusive. All of it can also be changed later, per tunnel, in
 the web UI, and the rules survive a reconnect.
@@ -115,10 +151,10 @@ from there.
 
 Options:
 
-| Flag | Description |
-|---|---|
-| `--name <name>` | Request a custom id (`a-z`, `0-9`, `-`, 3-32 characters). Fails if it is taken or [reserved](/persistent) by someone else. |
-| `--keep-host` | Send the public hostname as `Host` to your app instead of `192.168.1.5:8080`. By default the local authority is sent so dev servers like Vite or Django don't reject the request; the public host is always available in `X-Forwarded-Host`. |
+| Flag            | Description                                                                                                                                                                                                                                  |
+|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--name <name>` | Request a custom id (`a-z`, `0-9`, `-`, 3-32 characters). Fails if it is taken or [reserved](/persistent) by someone else.                                                                                                                   |
+| `--keep-host`   | Send the public hostname as `Host` to your app instead of `192.168.1.5:8080`. By default the local authority is sent so dev servers like Vite or Django don't reject the request; the public host is always available in `X-Forwarded-Host`. |
 
 ### Direct TCP + UDP
 
@@ -160,11 +196,11 @@ the server is known from `--server`, `TUNLIT_SERVER` or an earlier `tunlit login
 UDP socket on the same local port. By default that is the owner's
 port number; if it is taken you are asked for another one.
 
-| Flag | Description |
-|---|---|
-| `--port <port>` | Local port to bind instead of the owner's port. |
-| `--bind <addr>` | Local address to bind (default `127.0.0.1`). Use `0.0.0.0` to let other machines in your LAN use the forward. |
-| `--server <url>` | tunlit server URL. Only needed when a bare code was pasted instead of the link. |
+| Flag             | Description                                                                                                   |
+|------------------|---------------------------------------------------------------------------------------------------------------|
+| `--port <port>`  | Local port to bind instead of the owner's port.                                                               |
+| `--bind <addr>`  | Local address to bind (default `127.0.0.1`). Use `0.0.0.0` to let other machines in your LAN use the forward. |
+| `--server <url>` | tunlit server URL. Only needed when a bare code was pasted instead of the link.                               |
 
 ### Configuration
 
@@ -176,7 +212,8 @@ tunlit config set device-token <token>
 tunlit config set accept-invalid-certs true
 ```
 
-Keys: `server-url`, `device-token` (shown as `(set)`), `accept-invalid-certs` (for self-signed certificates on the server).
+Keys: `server-url`, `device-token` (shown as `(set)`), `accept-invalid-certs` (for self-signed certificates on the
+server).
 
 ### Logout
 
