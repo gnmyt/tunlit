@@ -32,7 +32,7 @@
 - **Bad network on demand**: add latency, jitter, a bandwidth cap or packet loss to any tunnel to see how your app copes
 - **Persistent names** that stay yours, with your own domains on top
 - **Route by path**: `/api` to one port, `/docs` to a folder, the rest to your app, all on one tunnel
-- **Protect a tunnel** with a password, a tunlit account, or an IP allowlist
+- **Protect a tunnel** with a password, a tunlit account, or allow and block rules by address, country, Tor, VPN and datacenter
 - **Accounts** for your team, with TOTP, passkeys and OIDC single sign-on
 - **HTTPS** either behind your own proxy or with certificates tunlit gets from Let's Encrypt itself
 

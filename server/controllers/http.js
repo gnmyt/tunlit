@@ -1,6 +1,6 @@
 const { requestInfo, classifyHost, proxyRequest, proxyUpgrade, QUERY_PARAM } = require("../lib/proxy");
 const { SERVICE_WORKER_SOURCE, SW_PATH, injectedScript } = require("../lib/browser");
-const { isAllowed, isRestricted, tokenFromRequest: accessToken, basicCredentials, cookieFor } = require("../lib/access");
+const { evaluate, isRestricted, tokenFromRequest: accessToken, basicCredentials, cookieFor } = require("../lib/access");
 const { verifyPassword } = require("../utils/password");
 const { checkAccountCredentials } = require("./auth");
 const { sendJson } = require("../utils/html");
@@ -19,9 +19,14 @@ const wantsHtml = req => /\btext\/html\b/.test(req.headers.accept || "");
 
 const ACME_PREFIX = "/.well-known/acme-challenge/";
 
+const FLAGS = ["tor", "vpn", "datacenter", "blocklisted"];
+
 const createRouter = ({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, control }) => {
     const announce = (tunnel, entry) => {
-        if (tunnel.session && !tunnel.session.closed) tunnel.session.sendControl({ type: "request", ...entry });
+        if (!tunnel.session || tunnel.session.closed) return;
+        const { request, response, ...rest } = entry;
+        const details = intel.lookup(entry.ip);
+        tunnel.session.sendControl({ type: "request", ...rest, country: details.country, org: details.org, flags: FLAGS.filter(flag => details[flag]) });
     };
     const record = (tunnel, entry) => {
         entry.intel = intel.lookup(entry.ip);
@@ -29,8 +34,8 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
         stats.recordRequest(tunnel.id);
     };
     const onRequest = tunnel => entry => {
-        record(tunnel, entry);
         announce(tunnel, entry);
+        record(tunnel, entry);
     };
     const websocket = tunnel => ({
         open: (entry, writers) => {
@@ -68,8 +73,9 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
         const policy = tunnel.policy;
         if (!isRestricted(policy)) return null;
 
-        if (!isAllowed(info.clientIp, policy.allowedIps)) {
-            return { deny: () => sendAppState(req, res, 403, { kind: "blocked", id: tunnel.id, ip: info.clientIp }) };
+        const reason = evaluate(policy, info.clientIp, intel.lookup(info.clientIp));
+        if (reason) {
+            return { deny: () => sendAppState(req, res, 403, { kind: "blocked", id: tunnel.id, ip: info.clientIp, reason }) };
         }
         if (policy.auth === "none") return null;
         if (access.allows(accessToken(req), tunnel.id)) return null;
@@ -238,7 +244,7 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
         if (target.error === "not-found" && host.kind !== "custom") return reject(404, "Tunnel not found");
         if (target.error) return reject(502, "Tunnel offline");
         if (isRestricted(target.tunnel.policy)) {
-            if (!isAllowed(info.clientIp, target.tunnel.policy.allowedIps)) return reject(403, "Forbidden");
+            if (evaluate(target.tunnel.policy, info.clientIp, intel.lookup(info.clientIp))) return reject(403, "Forbidden");
             if (target.tunnel.policy.auth !== "none" && !access.allows(accessToken(req), target.tunnel.id)) {
                 return reject(401, "Unauthorized");
             }

@@ -2,7 +2,7 @@ use eframe::egui::{self, Align, Layout, Ui};
 use crate::gui::app::{AuthChoice, NewTunnelForm, Page, TunnelKind, Window};
 use crate::gui::widgets::{self, ButtonKind, FieldOptions};
 use crate::gui::theme;
-use crate::tunnel::{Access, Options, Target, TargetSpec};
+use crate::tunnel::{Access, Options, Rules, Target, TargetSpec};
 
 impl Window<'_> {
     pub fn new_tunnel_page(&mut self, ui: &mut Ui) {
@@ -121,7 +121,7 @@ fn build_options(form: &NewTunnelForm) -> anyhow::Result<Options> {
     let auth = if form.kind == TunnelKind::Tcp { AuthChoice::Open } else { form.auth };
     let password = (auth == AuthChoice::Password).then(|| form.password.clone());
     if password.as_deref() == Some("") { anyhow::bail!("Enter a password, or pick another sign-in option"); }
-    let access = Access::new(form.allow.clone(), password, auth == AuthChoice::Login)?;
+    let access = Access::new(Rules::ips(form.allow.clone()), password, auth == AuthChoice::Login)?;
     let target = form.target.trim();
     if form.kind != TunnelKind::Files && target.is_empty() { anyhow::bail!("Enter a port or host:port to share"); }
     Ok(match form.kind {

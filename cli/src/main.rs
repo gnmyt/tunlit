@@ -37,7 +37,7 @@ enum Commands {
         #[arg(short, long)] name: Option<String>,
         #[arg(long, value_name = "PREFIX=TARGET")] route: Vec<String>,
         #[arg(long)] keep_host: bool,
-        #[arg(long = "allow", value_name = "CIDR")] allow: Vec<String>,
+        #[command(flatten)] rules: RuleArgs,
         #[arg(long, value_name = "PASSWORD")] password: Option<String>,
         #[arg(long)] require_login: bool,
         #[command(flatten)] shape: ShapeArgs,
@@ -45,7 +45,7 @@ enum Commands {
     Serve {
         #[arg(default_value = ".")] dir: String,
         #[arg(short, long)] name: Option<String>,
-        #[arg(long = "allow", value_name = "CIDR")] allow: Vec<String>,
+        #[command(flatten)] rules: RuleArgs,
         #[arg(long, value_name = "PASSWORD")] password: Option<String>,
         #[arg(long)] require_login: bool,
         #[command(flatten)] shape: ShapeArgs,
@@ -53,7 +53,7 @@ enum Commands {
     Tcp {
         target: String,
         #[arg(short, long)] name: Option<String>,
-        #[arg(long = "allow", value_name = "CIDR")] allow: Vec<String>,
+        #[command(flatten)] rules: RuleArgs,
         #[command(flatten)] shape: ShapeArgs,
     },
     Connect {
@@ -83,6 +83,21 @@ enum Commands {
         #[command(subcommand)]
         action: LinkAction,
     },
+}
+
+#[derive(clap::Args)]
+struct RuleArgs {
+    #[arg(long, value_name = "CIDR")] allow: Vec<String>,
+    #[arg(long, value_name = "CODE")] allow_country: Vec<String>,
+    #[arg(long, value_name = "CIDR")] block_ip: Vec<String>,
+    #[arg(long, value_name = "CODE")] block_country: Vec<String>,
+    #[arg(long, value_name = "CATEGORY", help = "tor, vpn, datacenter or blocklist")] block: Vec<String>,
+}
+
+impl RuleArgs {
+    fn parse(self) -> anyhow::Result<tunnel::Rules> {
+        tunnel::Rules::new(self.allow, self.allow_country, self.block_ip, self.block_country, self.block)
+    }
 }
 
 #[derive(clap::Args)]
@@ -140,12 +155,12 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Commands::Login => cli::login().await,
         Commands::Logout => cli::logout(),
-        Commands::Http { target, name, route, keep_host, allow, password, require_login, shape } =>
-            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::with_routes(&target, &route)?, name, keep_host, tunnel::Access::new(allow, password, require_login)?).shaped(shape.parse()?)).await,
-        Commands::Serve { dir, name, allow, password, require_login, shape } =>
-            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::dir(&dir)?, name, false, tunnel::Access::new(allow, password, require_login)?).shaped(shape.parse()?)).await,
-        Commands::Tcp { target, name, allow, shape } =>
-            cli::tunnel(tunnel::Options::tcp(tunnel::Target::parse(&target)?, name, tunnel::Access::new(allow, None, false)?).shaped(shape.parse()?)).await,
+        Commands::Http { target, name, route, keep_host, rules, password, require_login, shape } =>
+            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::with_routes(&target, &route)?, name, keep_host, tunnel::Access::new(rules.parse()?, password, require_login)?).shaped(shape.parse()?)).await,
+        Commands::Serve { dir, name, rules, password, require_login, shape } =>
+            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::dir(&dir)?, name, false, tunnel::Access::new(rules.parse()?, password, require_login)?).shaped(shape.parse()?)).await,
+        Commands::Tcp { target, name, rules, shape } =>
+            cli::tunnel(tunnel::Options::tcp(tunnel::Target::parse(&target)?, name, tunnel::Access::new(rules.parse()?, None, false)?).shaped(shape.parse()?)).await,
         Commands::Connect { target, port, bind, server } => cli::connect(target, port, bind, server).await,
         Commands::Ls => cli::list().await,
         Commands::Start { config } => headless::run(config).await,

@@ -110,33 +110,73 @@ impl TargetSpec {
     }
 }
 
+const CATEGORIES: [&str; 4] = ["tor", "vpn", "datacenter", "blocklist"];
+
+#[derive(Clone, Default)]
+pub struct Rules {
+    pub allow_ips: Vec<String>,
+    pub allow_countries: Vec<String>,
+    pub block_ips: Vec<String>,
+    pub block_countries: Vec<String>,
+    pub block: Vec<String>,
+}
+
+fn split(values: Vec<String>) -> Vec<String> {
+    values.iter().flat_map(|value| value.split(',')).map(str::trim).filter(|value| !value.is_empty()).map(String::from).collect()
+}
+
+fn countries(values: Vec<String>) -> Result<Vec<String>> {
+    split(values).into_iter().map(|code| {
+        let code = code.to_uppercase();
+        if code.len() != 2 || !code.chars().all(|c| c.is_ascii_uppercase()) { bail!("\"{code}\" is not a country code"); }
+        Ok(code)
+    }).collect()
+}
+
+impl Rules {
+    pub fn ips(allow_ips: Vec<String>) -> Self {
+        Self { allow_ips, ..Self::default() }
+    }
+
+    pub fn new(allow_ips: Vec<String>, allow_countries: Vec<String>, block_ips: Vec<String>, block_countries: Vec<String>, block: Vec<String>) -> Result<Self> {
+        let block = split(block).into_iter().map(|entry| {
+            let entry = entry.to_lowercase();
+            if !CATEGORIES.contains(&entry.as_str()) { bail!("\"{entry}\" is not one of {}", CATEGORIES.join(", ")); }
+            Ok(entry)
+        }).collect::<Result<_>>()?;
+        Ok(Self { allow_ips: split(allow_ips), allow_countries: countries(allow_countries)?, block_ips: split(block_ips), block_countries: countries(block_countries)?, block })
+    }
+
+    fn is_empty(&self) -> bool {
+        self.allow_ips.is_empty() && self.allow_countries.is_empty() && self.block_ips.is_empty() && self.block_countries.is_empty() && self.block.is_empty()
+    }
+}
+
 #[derive(Clone)]
 pub struct Access {
-    pub allowed_ips: Vec<String>,
+    pub rules: Rules,
     pub password: Option<String>,
     pub require_login: bool,
 }
 
 impl Access {
-    pub fn new(allow: Vec<String>, password: Option<String>, require_login: bool) -> Result<Self> {
+    pub fn new(rules: Rules, password: Option<String>, require_login: bool) -> Result<Self> {
         if password.is_some() && require_login {
             bail!("Use either --password or --require-login, not both");
         }
-        Ok(Self { allowed_ips: allow, password, require_login })
+        Ok(Self { rules, password, require_login })
     }
 
     fn as_json(&self) -> Option<serde_json::Value> {
-        if self.allowed_ips.is_empty() && self.password.is_none() && !self.require_login { return None; }
+        if self.rules.is_empty() && self.password.is_none() && !self.require_login { return None; }
         let auth = if self.require_login { "tunlit" } else if self.password.is_some() { "password" } else { "none" };
-        Some(json!({ "allowedIps": self.allowed_ips, "auth": auth, "password": self.password }))
-    }
-
-    pub fn summary(&self) -> Option<String> {
-        let mut parts = Vec::new();
-        if self.require_login { parts.push("tunlit login required".to_string()); }
-        if self.password.is_some() { parts.push("password protected".to_string()); }
-        if !self.allowed_ips.is_empty() { parts.push(format!("allowed: {}", self.allowed_ips.join(", "))); }
-        if parts.is_empty() { None } else { Some(parts.join(" · ")) }
+        let rules = &self.rules;
+        Some(json!({
+            "auth": auth,
+            "password": self.password,
+            "allow": { "ips": rules.allow_ips, "countries": rules.allow_countries },
+            "block": { "ips": rules.block_ips, "countries": rules.block_countries, "categories": rules.block },
+        }))
     }
 }
 
@@ -186,6 +226,7 @@ async fn register(url: &str, token: &str, accept_invalid_certs: bool, opts: &Opt
             connect_url: get("connectUrl"),
             custom_urls: msg.get("customUrls").and_then(|v| v.as_array()).map(|list| list.iter().filter_map(|v| v.as_str().map(String::from)).collect()).unwrap_or_default(),
             persistent: msg.get("persistent").and_then(|v| v.as_bool()).unwrap_or(false),
+            access: get("access"),
         },
         resume_token: get("resumeToken").context("registered without resume token")?,
     };
@@ -213,6 +254,7 @@ async fn serve_streams(events: &mut MuxEvents, target: &Target, shape: &Shape, o
                     Some("error") => return Ended::Error(msg.get("message").and_then(|m| m.as_str()).unwrap_or("unknown error").to_string()),
                     Some("bye") => return Ended::ByServer(msg.get("reason").and_then(|r| r.as_str()).unwrap_or("closed by the server").to_string()),
                     Some("request") => { let _ = out.send(TunnelEvent::Request(Request::from_control(&msg))); }
+                    Some("access") => { let _ = out.send(TunnelEvent::Access(msg.get("access").and_then(|v| v.as_str()).unwrap_or("open to anyone").to_string())); }
                     _ => {}
                 },
             }

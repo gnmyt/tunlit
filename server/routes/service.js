@@ -1,6 +1,6 @@
 const { Router } = require("../utils/router");
 const packageJson = require("../../package.json");
-const { isAllowed, cookieFor } = require("../lib/access");
+const { evaluate, cookieFor } = require("../lib/access");
 const { verifyPassword } = require("../utils/password");
 const { checkAccountCredentials } = require("../controllers/auth");
 const logger = require("../utils/logger");
@@ -29,7 +29,7 @@ app.post("/gate/:id", async (req, res) => {
     if (!tunnel) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
 
     const policy = tunnel.policy;
-    if (!isAllowed(req.info.clientIp, policy.allowedIps)) {
+    if (evaluate(policy, req.info.clientIp, req.intel.lookup(req.info.clientIp))) {
         return res.status(403).json({ error: "forbidden", message: "Your address is not allowed to use this tunnel" });
     }
     if (policy.auth === "none") return res.json({ ok: true });

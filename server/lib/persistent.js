@@ -2,10 +2,10 @@ const TunnelModel = require("../models/Tunnel");
 const Account = require("../models/Account");
 const { emptyPolicy } = require("./access");
 
-const toPolicy = row => ({ allowedIps: JSON.parse(row.allowedIps), auth: row.auth, passwordHash: row.passwordHash || null });
+const toPolicy = row => ({ ...JSON.parse(row.rules), auth: row.auth, passwordHash: row.passwordHash || null });
 
 const columns = policy => ({
-    allowedIps: JSON.stringify(policy.allowedIps || []),
+    rules: JSON.stringify({ allow: policy.allow, block: policy.block }),
     auth: policy.auth,
     passwordHash: policy.passwordHash || null,
 });

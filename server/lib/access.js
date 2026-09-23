@@ -64,20 +64,48 @@ const isAllowed = (address, rules = []) => {
     return rules.map(parseRule).filter(Boolean).some(rule => matchesRule(address, rule));
 };
 
-const emptyPolicy = () => ({ allowedIps: [], auth: "none", passwordHash: null });
+const CATEGORIES = ["tor", "vpn", "datacenter", "blocklist"];
+const CATEGORY_KEYS = { tor: "tor", vpn: "vpn", datacenter: "datacenter", blocklist: "blocklisted" };
+const CATEGORY_LABELS = { tor: "Tor exit nodes", vpn: "VPN services", datacenter: "datacenters", blocklist: "blocklisted addresses" };
+
+const fail = message => Object.assign(new Error(message), { code: "bad_request" });
+
+const emptyPolicy = () => ({
+    auth: "none",
+    passwordHash: null,
+    allow: { ips: [], countries: [] },
+    block: { ips: [], countries: [], categories: [] },
+});
+
+const listOf = value => (Array.isArray(value) ? value : String(value).split(",")).map(entry => String(entry).trim()).filter(Boolean);
+
+const ipRules = value => {
+    const rules = listOf(value);
+    for (const rule of rules) if (!parseRule(rule)) throw fail(`"${rule}" is not an IP address or CIDR range`);
+    if (rules.length > 64) throw fail("At most 64 IP rules");
+    return rules;
+};
+
+const countryCodes = value => {
+    const codes = [...new Set(listOf(value).map(code => code.toUpperCase()))];
+    for (const code of codes) if (!/^[A-Z]{2}$/.test(code)) throw fail(`"${code}" is not a country code`);
+    return codes;
+};
+
+const categories = value => {
+    const list = [...new Set(listOf(value).map(entry => entry.toLowerCase()))];
+    for (const entry of list) if (!CATEGORIES.includes(entry)) throw fail(`"${entry}" is not one of ${CATEGORIES.join(", ")}`);
+    return list;
+};
 
 const buildPolicy = (input = {}, previous = emptyPolicy()) => {
-    const policy = { ...previous };
+    const policy = { ...previous, allow: { ...previous.allow }, block: { ...previous.block } };
 
-    if (input.allowedIps !== undefined) {
-        const list = Array.isArray(input.allowedIps) ? input.allowedIps : String(input.allowedIps).split(",");
-        const cleaned = list.map(entry => String(entry).trim()).filter(Boolean);
-        for (const entry of cleaned) {
-            if (!parseRule(entry)) throw Object.assign(new Error(`"${entry}" is not an IP address or CIDR range`), { code: "bad_request" });
-        }
-        if (cleaned.length > 64) throw Object.assign(new Error("At most 64 allowed IP rules"), { code: "bad_request" });
-        policy.allowedIps = cleaned;
-    }
+    if (input.allow?.ips !== undefined) policy.allow.ips = ipRules(input.allow.ips);
+    if (input.allow?.countries !== undefined) policy.allow.countries = countryCodes(input.allow.countries);
+    if (input.block?.ips !== undefined) policy.block.ips = ipRules(input.block.ips);
+    if (input.block?.countries !== undefined) policy.block.countries = countryCodes(input.block.countries);
+    if (input.block?.categories !== undefined) policy.block.categories = categories(input.block.categories);
 
     if (input.auth !== undefined) {
         const auth = String(input.auth || "none");
@@ -101,12 +129,40 @@ const buildPolicy = (input = {}, previous = emptyPolicy()) => {
 };
 
 const describePolicy = (policy = emptyPolicy()) => ({
-    allowedIps: policy.allowedIps,
     auth: policy.auth,
     hasPassword: !!policy.passwordHash,
+    allow: policy.allow,
+    block: policy.block,
 });
 
-const isRestricted = (policy = emptyPolicy()) => policy.auth !== "none" || policy.allowedIps.length > 0;
+const hasRules = policy => policy.allow.ips.length + policy.allow.countries.length + policy.block.ips.length + policy.block.countries.length + policy.block.categories.length > 0;
+
+const isRestricted = (policy = emptyPolicy()) => policy.auth !== "none" || hasRules(policy);
+
+const evaluate = (policy, ip, intel) => {
+    if (!hasRules(policy)) return null;
+    const { allow, block } = policy;
+    const details = intel || {};
+    if (block.ips.length && isAllowed(ip, block.ips)) return "address";
+    if (block.countries.includes(details.country)) return "country";
+    const category = block.categories.find(entry => details[CATEGORY_KEYS[entry]]);
+    if (category) return category;
+    if (allow.ips.length && !isAllowed(ip, allow.ips)) return "address";
+    if (allow.countries.length && !allow.countries.includes(details.country)) return "country";
+    return null;
+};
+
+const summarizePolicy = policy => {
+    const parts = [];
+    if (policy.auth === "tunlit") parts.push("tunlit login required");
+    if (policy.auth === "password") parts.push("password protected");
+    if (policy.allow.ips.length) parts.push(`allowed: ${policy.allow.ips.join(", ")}`);
+    if (policy.allow.countries.length) parts.push(`only ${policy.allow.countries.join(", ")}`);
+    if (policy.block.ips.length) parts.push(`blocked: ${policy.block.ips.join(", ")}`);
+    if (policy.block.countries.length) parts.push(`not ${policy.block.countries.join(", ")}`);
+    if (policy.block.categories.length) parts.push(`no ${policy.block.categories.map(entry => CATEGORY_LABELS[entry]).join(", ")}`);
+    return parts.join(" · ") || null;
+};
 
 class AccessStore {
     constructor(ttl = TTL) {
@@ -166,6 +222,6 @@ const basicCredentials = req => {
 
 
 module.exports = {
-    AccessStore, isAllowed, emptyPolicy, buildPolicy, describePolicy, isRestricted,
+    AccessStore, isAllowed, emptyPolicy, buildPolicy, describePolicy, summarizePolicy, isRestricted, evaluate,
     cookieFor, tokenFromRequest, basicCredentials,
 };

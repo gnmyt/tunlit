@@ -33,8 +33,8 @@ app.get("/:id/requests", async (req, res) => {
         countries: list("countries").map(code => code.toUpperCase()).filter(code => /^[A-Z]{2}$/.test(code)),
     };
     const options = { filter, sort: req.query.get("sort") || "time", order: req.query.get("order") || "desc", offset: Number(req.query.get("offset")) || 0, limit: Number(req.query.get("limit")) || undefined };
-    const [requests, total] = await Promise.all([req.traffic.list(id, options), req.traffic.count(id, filter)]);
-    res.json({ requests, total, now: Date.now() });
+    const [requests, total, countries] = await Promise.all([req.traffic.list(id, options), req.traffic.count(id, filter), req.traffic.countries(id)]);
+    res.json({ requests, total, countries, now: Date.now() });
 });
 
 app.delete("/:id/requests", async (req, res) => {

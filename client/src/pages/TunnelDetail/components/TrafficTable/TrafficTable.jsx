@@ -8,13 +8,14 @@ import { useToast } from "@/common/contexts/toast.js";
 import { Activity, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, Pause, Play, Search, Trash2, X } from "lucide-react";
 import RequestPanel from "./components/RequestPanel";
 import { formatTime, statusClass } from "./format.js";
+import { countryName } from "@/common/utils/country.js";
 
 const POLL_INTERVAL = 1500;
 const PAGE_SIZE = 50;
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "WS"];
 const STATUSES = [2, 3, 4, 5];
 const COLUMNS = [["time", "Time"], ["client", "Client"], ["method", "Method"], ["path", "Path"], ["status", "Status"], ["duration", "Duration"]];
-const EMPTY = { search: "", methods: [], statuses: [] };
+const EMPTY = { search: "", methods: [], statuses: [], countries: [] };
 
 const toggle = (list, value) => (list.includes(value) ? list.filter(entry => entry !== value) : [...list, value]);
 
@@ -24,6 +25,7 @@ export const TrafficTable = ({ id }) => {
     const [requests, setRequests] = useState([]);
     const [loaded, setLoaded] = useState(false);
     const [total, setTotal] = useState(0);
+    const [countries, setCountries] = useState([]);
     const [page, setPage] = useState(0);
     const [paused, setPaused] = useState(false);
     const [selected, setSelected] = useState(null);
@@ -43,9 +45,11 @@ export const TrafficTable = ({ id }) => {
         if (filter.search) query.set("search", filter.search);
         if (filter.methods.length) query.set("methods", filter.methods.join(","));
         if (filter.statuses.length) query.set("statuses", filter.statuses.join(","));
+        if (filter.countries.length) query.set("countries", filter.countries.join(","));
         try {
             const data = await getRequest(`tunnels/${id}/requests?${query}`);
             setTotal(data.total);
+            setCountries(data.countries);
             setRequests(data.requests);
             setLoaded(true);
         } catch {
@@ -72,7 +76,7 @@ export const TrafficTable = ({ id }) => {
     };
 
     const sortBy = key => setSort(current => ({ by: key, order: current.by === key && current.order === "desc" ? "asc" : "desc" }));
-    const filtering = filter.search || filter.methods.length > 0 || filter.statuses.length > 0;
+    const filtering = filter.search || filter.methods.length > 0 || filter.statuses.length > 0 || filter.countries.length > 0;
     const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     const first = page * PAGE_SIZE + 1;
     const last = Math.min(total, (page + 1) * PAGE_SIZE);
@@ -115,6 +119,14 @@ export const TrafficTable = ({ id }) => {
                                     onClick={() => setFilter({ ...filter, statuses: toggle(filter.statuses, hundreds) })}>{hundreds}xx</button>
                         ))}
                     </div>
+                    {countries.length > 0 && (
+                        <div className="traffic-chips traffic-countries">
+                            {countries.map(({ code, count }) => (
+                                <button key={code} type="button" className={filter.countries.includes(code) ? "active" : ""} title={countryName(code)}
+                                        onClick={() => setFilter({ ...filter, countries: toggle(filter.countries, code) })}><Flag code={code} />{code}<small>{count}</small></button>
+                            ))}
+                        </div>
+                    )}
                     {filtering && <Button type="ghost" text="Reset" buttonType="button" onClick={() => { setFilter(EMPTY); setSearch(""); }} />}
                 </div>
             )}

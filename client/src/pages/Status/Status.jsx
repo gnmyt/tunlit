@@ -7,8 +7,16 @@ import { bindTab, readTab, rememberTab } from "@/common/utils/tunnelTab.js";
 
 const POLL_INTERVAL = 2000;
 const BIND_TIMEOUT = 2000;
+const BLOCKED = {
+    address: "This tunnel does not accept requests from your address.",
+    country: "This tunnel does not accept requests from your country.",
+    tor: "This tunnel does not accept requests from Tor exit nodes.",
+    vpn: "This tunnel does not accept requests from VPN services.",
+    datacenter: "This tunnel does not accept requests from datacenters.",
+    blocklist: "This tunnel does not accept requests from blocklisted addresses.",
+};
 
-export const Status = ({ kind, id, to, auth, ip }) => {
+export const Status = ({ kind, id, to, auth, ip, reason }) => {
     const target = to || new URLSearchParams(window.location.search).get("to") || "/";
     const [failed, setFailed] = useState(false);
     const started = useRef(false);
@@ -54,7 +62,7 @@ export const Status = ({ kind, id, to, auth, ip }) => {
             <div className="status-page">
                 <div className="form-head">
                     <h1>Not allowed.</h1>
-                    <p>This tunnel only accepts requests from certain addresses{ip ? <> and <code>{ip}</code> is not one of them</> : null}.</p>
+                    <p>{BLOCKED[reason]}{ip ? <> Your address is <code>{ip}</code>.</> : null}</p>
                 </div>
             </div>
         );

@@ -3,6 +3,7 @@ const { MuxSession } = require("../lib/MuxSession");
 const { attachJoiner } = require("./relay");
 const { randomToken } = require("../utils/ids");
 const logger = require("../utils/logger");
+const { summarizePolicy } = require("../lib/access");
 const packageJson = require("../../package.json");
 
 const PROTOCOL_VERSION = 1;
@@ -64,6 +65,7 @@ const createControlServer = ({ config, auth, registry }) => {
                             url: registry.publicUrl(tunnel),
                             customUrls: registry.customUrls(tunnel),
                             persistent: tunnel.persistent,
+                            access: summarizePolicy(tunnel.policy),
                             shareCode: tunnel.shareCode,
                             connectUrl: registry.connectUrl(tunnel),
                             resumeToken: tunnel.resumeToken,

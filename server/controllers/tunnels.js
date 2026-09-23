@@ -1,6 +1,11 @@
 const { endSession } = require("../lib/registry");
 const { replayRequest } = require("../lib/proxy");
-const { buildPolicy, describePolicy } = require("../lib/access");
+const { buildPolicy, describePolicy, summarizePolicy } = require("../lib/access");
+
+const announceAccess = tunnel => {
+    if (tunnel.session && !tunnel.session.closed) tunnel.session.sendControl({ type: "access", access: summarizePolicy(tunnel.policy) });
+};
+module.exports.announceAccess = announceAccess;
 const persistent = require("../lib/persistent");
 
 const serializeTunnel = (registry, tunnel) => ({
@@ -72,9 +77,6 @@ module.exports.disconnectAllClients = (registry, id, viewer) => {
 module.exports.updateAccess = async (registry, access, id, input, viewer) => {
     const tunnel = registry.get(id);
     if (!mayTouch(tunnel, viewer)) return { code: 404, message: "Tunnel not found" };
-    if (tunnel.mode !== "tcp" && input.auth === undefined && input.password === undefined && input.allowedIps === undefined) {
-        return { code: 400, message: "Nothing to change" };
-    }
     try {
         tunnel.policy = buildPolicy({ ...input, password: input.password || undefined }, tunnel.policy);
     } catch (err) {
@@ -83,6 +85,7 @@ module.exports.updateAccess = async (registry, access, id, input, viewer) => {
 
     access.forget(id);
     if (tunnel.persistent) await persistent.savePolicy(tunnel.id, tunnel.policy);
+    announceAccess(tunnel);
     return { message: "Access updated", access: describePolicy(tunnel.policy) };
 };
 

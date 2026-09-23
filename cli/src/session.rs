@@ -7,11 +7,15 @@ pub struct Request {
     pub status: u16,
     pub duration: u64,
     pub ip: String,
+    pub country: Option<String>,
+    pub org: Option<String>,
+    pub flags: Vec<String>,
 }
 
 impl Request {
     pub fn from_control(message: &serde_json::Value) -> Self {
         let field = |key: &str| message.get(key).and_then(|value| value.as_str()).unwrap_or("").to_string();
+        let optional = |key: &str| message.get(key).and_then(|value| value.as_str()).map(String::from);
         Self {
             kind: field("kind"),
             method: field("method"),
@@ -19,7 +23,15 @@ impl Request {
             status: message.get("status").and_then(|value| value.as_u64()).unwrap_or(0) as u16,
             duration: message.get("duration").and_then(|value| value.as_u64()).unwrap_or(0),
             ip: field("ip"),
+            country: optional("country"),
+            org: optional("org"),
+            flags: message.get("flags").and_then(|value| value.as_array()).map(|list| list.iter().filter_map(|v| v.as_str().map(String::from)).collect()).unwrap_or_default(),
         }
+    }
+
+    pub fn intel(&self) -> Option<String> {
+        let parts: Vec<&str> = self.country.iter().chain(self.org.iter()).chain(self.flags.iter()).map(String::as_str).collect();
+        if parts.is_empty() { None } else { Some(parts.join(" · ")) }
     }
 }
 
@@ -31,6 +43,7 @@ pub struct Online {
     pub connect_url: Option<String>,
     pub custom_urls: Vec<String>,
     pub persistent: bool,
+    pub access: Option<String>,
 }
 
 impl Online {
@@ -47,6 +60,7 @@ pub enum TunnelEvent {
     Resumed(Online),
     Replaced(Online),
     Request(Request),
+    Access(String),
     Reconnecting { seconds: u64, reason: Option<String> },
     Stopped,
     Ended(String),

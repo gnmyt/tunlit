@@ -239,7 +239,7 @@ impl State {
         let (events, rx) = session::channel();
         let (handle, stop) = Stop::new();
         self.tunnels.push(TunnelCard {
-            id, kind, target_label, access: opts.access.summary(), state: TunnelState::Connecting, online: None,
+            id, kind, target_label, access: None, state: TunnelState::Connecting, online: None,
             requests: VecDeque::new(), request_count: 0, started: Instant::now(), stop: handle, show_qr: false, copied_at: None,
         });
         self.forward(rx, move |event| Msg::Tunnel(id, event));
@@ -353,8 +353,10 @@ impl State {
                 let fresh = card.online.as_ref().is_none_or(|current| current.id != online.id);
                 card.state = TunnelState::Online;
                 if fresh { toast = Some(format!("Tunnel {} is online", online.id)); }
+                card.access = online.access.clone();
                 card.online = Some(online);
             }
+            TunnelEvent::Access(summary) => card.access = Some(summary),
             TunnelEvent::Request(request) => {
                 card.request_count += 1;
                 if card.requests.len() == MAX_REQUESTS { card.requests.pop_back(); }

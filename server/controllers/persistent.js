@@ -1,5 +1,6 @@
 const persistent = require("../lib/persistent");
 const { buildPolicy, describePolicy, emptyPolicy } = require("../lib/access");
+const { announceAccess } = require("./tunnels");
 const ids = require("../utils/ids");
 
 const NOT_FOUND = { code: 404, message: "Persistent tunnel not found" };
@@ -19,6 +20,7 @@ const applyLive = (req, name, policy) => {
     if (!live) return;
     live.policy = policy;
     req.access.forget(name);
+    announceAccess(live);
 };
 
 const serialize = async (req, definition) => {
@@ -68,7 +70,7 @@ module.exports.create = async (req, input) => {
         return { code: 409, message: `"${name}" is in use by another account` };
     }
 
-    const wantsPolicy = ["auth", "password", "allowedIps"].some(key => input[key] !== undefined);
+    const wantsPolicy = ["auth", "password", "allow", "block"].some(key => input[key] !== undefined);
     const { policy, code, message } = wantsPolicy ? policyFrom(input, live ? live.policy : emptyPolicy()) : { policy: live ? live.policy : emptyPolicy() };
     if (code) return { code, message };
 

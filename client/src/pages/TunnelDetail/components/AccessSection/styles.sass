@@ -6,9 +6,12 @@
 
 .access-cards
   display: grid
-  grid-template-columns: 1fr 1fr
+  grid-template-columns: repeat(3, 1fr)
   gap: 0.75rem
   align-items: start
+
+  @media (max-width: breakpoints.$tablet)
+    grid-template-columns: 1fr 1fr
 
   @media (max-width: breakpoints.$mobile)
     grid-template-columns: 1fr
@@ -17,6 +20,26 @@
   background-color: colors.$surface
   border: 1px solid colors.$border
   border-radius: 0.875rem
+
+  > h4
+    margin: 0.875rem 1rem 0
+    color: colors.$muted
+    font-size: 0.6875rem
+    font-weight: 600
+    text-transform: uppercase
+    letter-spacing: 0.06em
+
+.rule-toggles
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+  padding: 0.625rem 1rem 0.875rem
+
+  .toggle-row
+    justify-content: space-between
+
+    label
+      font-size: 0.8125rem
 
 .access-card-head
   padding: 0.875rem 1rem 0
@@ -47,7 +70,7 @@
   background-color: colors.$surface-raised
 
 .rule-list
-  margin: 0.875rem 1rem 0
+  margin: 0.5rem 1rem 0
   display: flex
   flex-direction: column
   gap: 0.3rem
@@ -61,13 +84,15 @@
     border: 1px solid colors.$border
     border-radius: 0.5rem
 
-  code
+  code, > li > span
     flex: 1
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
     font-size: 0.8125rem
     color: colors.$text
     overflow: hidden
     text-overflow: ellipsis
+
+  code
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
 
   button
     display: inline-flex
@@ -100,7 +125,53 @@
   display: flex
   align-items: flex-start
   gap: 0.5rem
-  padding: 0.875rem 1rem
+  padding: 0.5rem 1rem 0.25rem
 
-  .field
-    flex: 1
+.rule-group:last-child .rule-add
+  padding-bottom: 0.875rem
+
+.rule-input
+  position: relative
+  flex: 1
+
+.rule-suggestions
+  position: absolute
+  top: calc(100% + 0.25rem)
+  left: 0
+  right: 0
+  z-index: 10
+  margin: 0
+  padding: 0.25rem
+  background-color: colors.$surface-raised
+  border: 1px solid colors.$border-strong
+  border-radius: 0.625rem
+  box-shadow: colors.$shadow-lg
+
+  button
+    display: flex
+    align-items: center
+    gap: 0.5rem
+    width: 100%
+    padding: 0.4rem 0.5rem
+    background: none
+    border: none
+    border-radius: 0.45rem
+    color: colors.$text
+    font-family: inherit
+    font-size: 0.8125rem
+    text-align: left
+    cursor: pointer
+
+    &:hover
+      background-color: colors.$surface-hover
+
+    span
+      flex: 1
+      overflow: hidden
+      text-overflow: ellipsis
+      white-space: nowrap
+
+    small
+      color: colors.$muted
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
+      font-size: 0.6875rem

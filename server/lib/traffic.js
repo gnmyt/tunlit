@@ -1,4 +1,6 @@
-const { Op } = require("sequelize");
+const { Op, fn, col, literal, where: sqlWhere } = require("sequelize");
+
+const country = () => fn("json_extract", col("intel"), literal("'$.country'"));
 const Request = require("../models/Request");
 const Frame = require("../models/Frame");
 const logger = require("../utils/logger");
@@ -22,7 +24,7 @@ const criteria = (tunnelId, { search, methods = [], statuses = [], countries = [
         where[Op.and] = [...(where[Op.and] || []), { [Op.or]: statuses.map(hundreds => ({ status: { [Op.between]: [hundreds * 100, hundreds * 100 + 99] } })) }];
     }
     if (countries.length) {
-        where[Op.and] = [...(where[Op.and] || []), { [Op.or]: countries.map(code => ({ intel: { [Op.like]: `%"country":"${code}"%` } })) }];
+        where[Op.and] = [...(where[Op.and] || []), sqlWhere(country(), { [Op.in]: countries })];
     }
     return where;
 };
@@ -164,6 +166,15 @@ class TrafficLog {
 
     count(tunnelId, filter = {}) {
         return Request.count({ where: criteria(tunnelId, filter) });
+    }
+
+    async countries(tunnelId) {
+        const rows = await Request.findAll({
+            where: { tunnel: tunnelId },
+            attributes: [[country(), "code"], [fn("COUNT", col("id")), "count"]],
+            group: ["code"],
+        });
+        return rows.filter(row => row.code).map(row => ({ code: row.code, count: row.count })).sort((a, b) => b.count - a.count);
     }
 
     async forget(tunnelId) {

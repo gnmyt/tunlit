@@ -1,7 +1,7 @@
 const { EventEmitter } = require("node:events");
 const crypto = require("node:crypto");
 const ids = require("../utils/ids");
-const { emptyPolicy, buildPolicy, isAllowed } = require("./access");
+const { emptyPolicy, buildPolicy, evaluate } = require("./access");
 const persistent = require("./persistent");
 const { safeEqual } = require("../utils/auth");
 const logger = require("../utils/logger");
@@ -54,11 +54,12 @@ const parseTarget = raw => {
 };
 
 class Registry extends EventEmitter {
-    constructor(config, domains, quotas) {
+    constructor(config, domains, quotas, intel) {
         super();
         this.config = config;
         this.domains = domains;
         this.quotas = quotas;
+        this.intel = intel;
         this.tunnels = new Map();
     }
 
@@ -192,7 +193,8 @@ class Registry extends EventEmitter {
         const tunnel = this.tunnels.get(parts.id);
         if (!tunnel || tunnel.mode !== "tcp" || !tunnel.secretHash) throw Object.assign(new Error("Invalid share code"), { code: "invalid_code" });
         if (!crypto.timingSafeEqual(tunnel.secretHash, ids.hashSecret(parts.secret))) throw Object.assign(new Error("Invalid share code"), { code: "invalid_code" });
-        if (!isAllowed(session.client?.ip, tunnel.policy.allowedIps)) {
+        const ip = session.client?.ip;
+        if (evaluate(tunnel.policy, ip, this.intel.lookup(ip))) {
             throw Object.assign(new Error("Your address is not allowed to use this tunnel"), { code: "forbidden" });
         }
         tunnel.joiners.add(session);

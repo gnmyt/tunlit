@@ -120,30 +120,35 @@ tunnels:
 
 ### Protecting a tunnel
 
-A tunnel can be restricted from the moment it is created:
-
 ```sh
 tunlit http 3000 --password hunter2          # ask visitors for a password
 tunlit http 3000 --require-login             # ask visitors for a tunlit account
 tunlit serve --allow 10.0.0.0/8              # only this range may connect
-tunlit tcp 25565 --allow 203.0.113.5         # same, for a direct tcp tunnel
+tunlit http 3000 --allow-country de,at,ch    # only these countries
+tunlit http 3000 --block tor --block vpn     # no Tor exit nodes or VPNs
+tunlit tcp 25565 --block-country ru          # rules work for tcp too
 ```
 
-| Flag                    | Description                                                                                                                                              |
-|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--allow <cidr>`        | Repeatable. A single address or a CIDR range. With none set, anyone may connect. Applies to every mode, including who may use a `tunlit tcp` share code. |
-| `--password <password>` | HTTP tunnels only. Visitors get a password prompt; scripts can use `curl -u any:<password>`.                                                             |
-| `--require-login`       | HTTP tunnels only. Visitors sign in with the tunlit admin account.                                                                                       |
+| Flag                      | Description                                                        |
+|---------------------------|--------------------------------------------------------------------|
+| `--allow <cidr>`          | Only these addresses or ranges.                                    |
+| `--allow-country <code>`  | Only these countries, two-letter codes.                            |
+| `--block-ip <cidr>`       | Never these addresses or ranges.                                   |
+| `--block-country <code>`  | Never these countries.                                             |
+| `--block <category>`      | Never `tor`, `vpn`, `datacenter` or `blocklist` addresses.         |
+| `--password <password>`   | HTTP only. Visitors get a password prompt, `curl -u any:<password>` works. |
+| `--require-login`         | HTTP only. Visitors sign in with the tunlit admin account.         |
 
-`--password` and `--require-login` are mutually exclusive. All of it can also be changed later, per tunnel, in
-the web UI, and the rules survive a reconnect.
+All flags repeat or take comma-separated values. Block rules win over allow rules. `--password` and `--require-login`
+are mutually exclusive. Rules can be changed later in the web UI, the CLI prints the new rules and they survive a reconnect.
 
-While the tunnel is open, every request that passes through is printed as it completes:
+While the tunnel is open, every request that passes through is printed as it completes, with country, network and
+flags of the visitor:
 
 ```
-GET  200 /            3ms
-GET  404 /favicon.ico 1ms
-WS   101 /socket      4210ms
+GET  200 /            3ms  DE · Hetzner Online · datacenter
+GET  404 /favicon.ico 1ms  US · Comcast
+WS   101 /socket      4210ms  NL · Tor · tor
 ```
 
 The same requests are kept server-side and shown in the web UI, with their headers and bodies; WebSocket connections

@@ -8,7 +8,7 @@ use crate::config::Config;
 use crate::session::{self, Stop, StopHandle, TunnelEvent};
 use crate::shape::Shape;
 use crate::router::{Route, RouteTarget};
-use crate::tunnel::{self, Access, Options, Target, TargetSpec};
+use crate::tunnel::{self, Access, Options, Rules, Target, TargetSpec};
 
 pub const EXAMPLE: &str = "tunnels:\n  myapp:\n    http: 3000\n  db:\n    tcp: 5432\n    allow: [10.0.0.0/8]\n";
 
@@ -54,13 +54,18 @@ struct Entry {
     #[serde(default)] shape: ShapeSpec,
     #[serde(default)] keep_host: bool,
     #[serde(default)] allow: Vec<String>,
+    #[serde(default)] allow_countries: Vec<String>,
+    #[serde(default)] block_ips: Vec<String>,
+    #[serde(default)] block_countries: Vec<String>,
+    #[serde(default)] block: Vec<String>,
     password: Option<String>,
     #[serde(default)] require_login: bool,
 }
 
 impl Entry {
     fn options(self, name: &str) -> Result<Options> {
-        let access = Access::new(self.allow, self.password, self.require_login)?;
+        let rules = Rules::new(self.allow, self.allow_countries, self.block_ips, self.block_countries, self.block).with_context(|| name.to_string())?;
+        let access = Access::new(rules, self.password, self.require_login)?;
         let shape = self.shape.shape().with_context(|| name.to_string())?;
         let id = Some(name.to_string());
         let root = match (self.http, self.serve, self.tcp) {
@@ -102,9 +107,14 @@ async fn print(name: String, mut rx: UnboundedReceiver<TunnelEvent>) {
                     None => log(&name, format!("online, share code {}", online.share_code.as_deref().unwrap_or(""))),
                 }
                 for url in &online.custom_urls { log(&name, format!("       {}", style(url).underlined())); }
+                if let Some(access) = &online.access { log(&name, format!("access: {access}")); }
             }
             TunnelEvent::Resumed(_) => log(&name, "reconnected"),
-            TunnelEvent::Request(request) => log(&name, format!("{} {} {} {}ms", request.method, request.status, request.path, request.duration)),
+            TunnelEvent::Request(request) => {
+                let intel = request.intel().map(|text| format!("  {text}")).unwrap_or_default();
+                log(&name, format!("{} {} {} {}ms{intel}", request.method, request.status, request.path, request.duration));
+            }
+            TunnelEvent::Access(summary) => log(&name, format!("access: {summary}")),
             TunnelEvent::Reconnecting { seconds, reason } => match reason {
                 Some(reason) => log(&name, format!("reconnecting in {seconds}s ({reason})")),
                 None => log(&name, "connection lost, reconnecting"),

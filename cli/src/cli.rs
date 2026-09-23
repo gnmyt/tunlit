@@ -11,7 +11,7 @@ use crate::connect;
 use crate::qr;
 use crate::session::{self, Events, JoinEvent, Online, Request, Stop, TunnelEvent};
 use crate::shape::Shape;
-use crate::tunnel::{self, Access, Options};
+use crate::tunnel::{self, Options};
 
 fn ok() -> console::StyledObject<&'static str> { style("✓").green().bold() }
 fn warn() -> console::StyledObject<&'static str> { style("!").yellow().bold() }
@@ -70,7 +70,7 @@ async fn printed<E: Send + 'static>(
     result
 }
 
-fn print_ready(online: &Online, target_label: &str, server_url: &str, access: &Access, shape: &Shape) {
+fn print_ready(online: &Online, target_label: &str, server_url: &str, shape: &Shape) {
     let kind = if online.persistent { style(" (persistent)").dim().to_string() } else { String::new() };
     println!("{} Tunnel {} is online{kind}", ok(), style(&online.id).cyan().bold());
     if let Some(url) = &online.url {
@@ -88,7 +88,7 @@ fn print_ready(online: &Online, target_label: &str, server_url: &str, access: &A
         qr::print(&link);
         if qr::copy(&format!("tunlit connect {link}")) { println!("{} Copied to clipboard", ok()); }
     }
-    if let Some(summary) = access.summary() {
+    if let Some(summary) = &online.access {
         println!("  {} {}", style("Access:").dim(), style(summary).yellow());
     }
     if let Some(summary) = shape.summary() {
@@ -105,27 +105,28 @@ fn print_request(request: &Request) {
         _ => style(request.status).red(),
     };
     let label = if request.kind == "ws" { style("WS ").magenta().to_string() } else { style(format!("{:<4}", request.method)).bold().to_string() };
-    println!("{} {} {} {}", label, status.bold(), style(&request.path).dim(), style(format!("{}ms", request.duration)).dim());
+    let intel = request.intel().map(|text| format!("  {text}")).unwrap_or_default();
+    println!("{} {} {} {}{}", label, status.bold(), style(&request.path).dim(), style(format!("{}ms", request.duration)).dim(), style(intel).dim());
 }
 
 pub async fn tunnel(opts: Options) -> Result<()> {
     let cfg = Config::load()?;
     let (server_url, _) = cfg.require_auth()?;
     let (opts, target, label) = tunnel::prepare(opts).await?;
-    let access = opts.access.clone();
     let shape = opts.shape.clone();
     let (events, rx, stop) = session();
 
     printed(rx, move |printer, event| match event {
         TunnelEvent::Connecting => printer.busy("Connecting to server...".into()),
-        TunnelEvent::Online(online) => { printer.idle(); print_ready(&online, &label, &server_url, &access, &shape); }
+        TunnelEvent::Online(online) => { printer.idle(); print_ready(&online, &label, &server_url, &shape); }
         TunnelEvent::Resumed(online) => { printer.idle(); println!("{} Reconnected, tunnel {} is back online", ok(), style(&online.id).cyan()); }
         TunnelEvent::Replaced(online) => {
             printer.idle();
             println!("{} The old tunnel expired, a new one was created", warn());
-            print_ready(&online, &label, &server_url, &access, &shape);
+            print_ready(&online, &label, &server_url, &shape);
         }
         TunnelEvent::Request(request) => print_request(&request),
+        TunnelEvent::Access(summary) => println!("{} {}", style("Access:").dim(), style(summary).yellow()),
         TunnelEvent::Reconnecting { seconds, reason } => printer.reconnecting(seconds, reason),
         TunnelEvent::Stopped => { printer.idle(); println!("\n{} Tunnel closed", ok()); }
         TunnelEvent::Ended(reason) => { printer.idle(); println!("{} Tunnel ended: {}", ok(), style(reason).dim()); }
