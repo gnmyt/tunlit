@@ -19,20 +19,23 @@ const wantsHtml = req => /\btext\/html\b/.test(req.headers.accept || "");
 
 const ACME_PREFIX = "/.well-known/acme-challenge/";
 
-const createRouter = ({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, control }) => {
+const createRouter = ({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, control }) => {
     const announce = (tunnel, entry) => {
         if (tunnel.session && !tunnel.session.closed) tunnel.session.sendControl({ type: "request", ...entry });
     };
-    const onRequest = tunnel => entry => {
+    const record = (tunnel, entry) => {
+        entry.intel = intel.lookup(entry.ip);
         traffic.record(tunnel.id, entry);
         stats.recordRequest(tunnel.id);
+    };
+    const onRequest = tunnel => entry => {
+        record(tunnel, entry);
         announce(tunnel, entry);
     };
     const websocket = tunnel => ({
-        open: entry => {
-            traffic.record(tunnel.id, entry);
-            stats.recordRequest(tunnel.id);
-            frames.opened(entry.connection);
+        open: (entry, writers) => {
+            record(tunnel, entry);
+            frames.opened(entry.connection, writers);
         },
         frame: (connection, direction, opcode, payload) => frames.record(tunnel.id, connection, direction, opcode, payload),
         close: (connection, entry) => {

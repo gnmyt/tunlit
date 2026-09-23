@@ -25,11 +25,23 @@ app.get("/:id/requests.har", async (req, res) => {
 app.get("/:id/requests", async (req, res) => {
     const id = req.params.id.toLowerCase();
     if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
-    const after = Number(req.query.get("after")) || 0;
-    const before = Number(req.query.get("before")) || 0;
-    const limit = Number(req.query.get("limit")) || undefined;
-    const [requests, total] = await Promise.all([req.traffic.list(id, { after, before, limit }), req.traffic.count(id)]);
+    const list = key => (req.query.get(key) || "").split(",").map(value => value.trim()).filter(Boolean);
+    const filter = {
+        search: (req.query.get("search") || "").trim().slice(0, 200),
+        methods: list("methods").map(method => method.toUpperCase()),
+        statuses: list("statuses").map(Number).filter(value => value >= 1 && value <= 5),
+        countries: list("countries").map(code => code.toUpperCase()).filter(code => /^[A-Z]{2}$/.test(code)),
+    };
+    const options = { filter, sort: req.query.get("sort") || "time", order: req.query.get("order") || "desc", offset: Number(req.query.get("offset")) || 0, limit: Number(req.query.get("limit")) || undefined };
+    const [requests, total] = await Promise.all([req.traffic.list(id, options), req.traffic.count(id, filter)]);
     res.json({ requests, total, now: Date.now() });
+});
+
+app.delete("/:id/requests", async (req, res) => {
+    const id = req.params.id.toLowerCase();
+    if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
+    await req.traffic.forget(id);
+    res.json({ message: "Requests cleared" });
 });
 
 app.get("/:id/requests/:requestId/frames", async (req, res) => {
@@ -39,6 +51,18 @@ app.get("/:id/requests/:requestId/frames", async (req, res) => {
     if (!entry?.connection) return res.status(404).json({ error: "not_found", message: "No frames for that request" });
     const after = Number(req.query.get("after")) || 0;
     res.json({ frames: await req.frames.list(id, entry.connection, after), open: req.frames.isOpen(entry.connection), now: Date.now() });
+});
+
+app.post("/:id/requests/:requestId/frames", async (req, res) => {
+    const id = req.params.id.toLowerCase();
+    if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
+    const entry = await req.traffic.get(id, Number(req.params.requestId));
+    if (!entry?.connection) return res.status(404).json({ error: "not_found", message: "No such connection" });
+    const { direction, text } = req.body;
+    if (!["in", "out"].includes(direction)) return res.status(400).json({ code: 400, message: "direction must be in or out" });
+    if (typeof text !== "string" || !text) return res.status(400).json({ code: 400, message: "Nothing to send" });
+    if (!req.frames.inject(id, entry.connection, direction, Buffer.from(text, "utf8"))) return res.status(409).json({ code: 409, message: "The connection is closed" });
+    res.json({ message: "Sent" });
 });
 
 app.get("/:id/requests/:requestId", async (req, res) => {

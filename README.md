@@ -28,6 +28,7 @@
 - **TCP and UDP tunnels** for anything that is not HTTP, like a database or a game server
 - **Share a port** with someone who has no account: they get a link, the port appears on their machine
 - **Live traffic** per tunnel, with request and response bodies you can read and replay in the browser
+- **IP intelligence** for every visitor: country, network, Tor, VPN and datacenter flags, all looked up offline
 - **Bad network on demand**: add latency, jitter, a bandwidth cap or packet loss to any tunnel to see how your app copes
 - **Persistent names** that stay yours, with your own domains on top
 - **Route by path**: `/api` to one port, `/docs` to a folder, the rest to your app, all on one tunnel

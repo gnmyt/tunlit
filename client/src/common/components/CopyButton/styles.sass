@@ -1,0 +1,27 @@
+@use "@/common/styles/colors"
+
+.copy-button
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 1.375rem
+  height: 1.375rem
+  flex-shrink: 0
+  padding: 0
+  background: none
+  border: none
+  border-radius: 0.35rem
+  color: colors.$muted
+  cursor: pointer
+  transition: background-color 0.15s ease, color 0.15s ease
+
+  svg
+    width: 0.8125rem
+    height: 0.8125rem
+
+  &:hover
+    background-color: colors.$surface-hover
+    color: colors.$text
+
+  &.copied
+    color: colors.$success

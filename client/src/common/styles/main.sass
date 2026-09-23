@@ -42,6 +42,11 @@ code, pre
   flex: 1
   overflow-y: auto
   min-height: 0
+  transition: padding-right 0.18s ease
+
+  @media (min-width: 90rem)
+    body.panel-open &
+      padding-right: 40rem
 
 .page
   max-width: 68rem

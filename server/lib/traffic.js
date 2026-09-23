@@ -5,6 +5,27 @@ const logger = require("../utils/logger");
 
 const PER_TUNNEL_LIMIT = 200;
 const PAGE_SIZE = 50;
+const SORTABLE = { time: "id", status: "status", duration: "duration", path: "path", method: "method" };
+
+const criteria = (tunnelId, { search, methods = [], statuses = [], countries = [] }) => {
+    const where = { tunnel: tunnelId };
+    if (search) where[Op.or] = [{ path: { [Op.like]: `%${search}%` } }, { ip: { [Op.like]: `%${search}%` } }];
+    if (methods.length) {
+        const wantsWs = methods.includes("WS");
+        const plain = methods.filter(method => method !== "WS");
+        const options = [];
+        if (plain.length) options.push({ kind: "http", method: plain });
+        if (wantsWs) options.push({ kind: "ws" });
+        where[Op.and] = [...(where[Op.and] || []), { [Op.or]: options }];
+    }
+    if (statuses.length) {
+        where[Op.and] = [...(where[Op.and] || []), { [Op.or]: statuses.map(hundreds => ({ status: { [Op.between]: [hundreds * 100, hundreds * 100 + 99] } })) }];
+    }
+    if (countries.length) {
+        where[Op.and] = [...(where[Op.and] || []), { [Op.or]: countries.map(code => ({ intel: { [Op.like]: `%"country":"${code}"%` } })) }];
+    }
+    return where;
+};
 const FLUSH_INTERVAL = 500;
 
 const toText = body => (body ? Buffer.from(body).toString("base64") : null);
@@ -15,6 +36,7 @@ const summarise = row => ({
     duration: row.duration,
     kind: row.kind,
     connection: row.connection,
+    intel: row.intel ? JSON.parse(row.intel) : null,
     method: row.method,
     path: row.path,
     status: row.status,
@@ -67,6 +89,7 @@ class TrafficLog {
             duration: entry.duration || 0,
             kind: entry.kind || "http",
             connection: entry.connection || null,
+            intel: entry.intel ? JSON.stringify(entry.intel) : null,
             method: entry.method || null,
             path: entry.path || null,
             status: entry.status || null,
@@ -114,13 +137,14 @@ class TrafficLog {
         else await Request.update({ duration }, { where: { connection } });
     }
 
-    async list(tunnelId, { after = 0, before = 0, limit = PAGE_SIZE } = {}) {
+    async list(tunnelId, { filter = {}, sort = "time", order = "desc", offset = 0, limit = PAGE_SIZE } = {}) {
         await this.flush();
-        const where = { tunnel: tunnelId };
-        if (after) where.id = { [Op.gt]: after };
-        if (before) where.id = { ...where.id, [Op.lt]: before };
+        const column = SORTABLE[sort] || "id";
         const rows = await Request.findAll({
-            where, order: [["id", "DESC"]], limit: Math.min(Math.max(limit, 1), PER_TUNNEL_LIMIT),
+            where: criteria(tunnelId, filter),
+            order: [[column, order === "asc" ? "ASC" : "DESC"], ["id", "DESC"]],
+            offset: Math.max(offset, 0),
+            limit: Math.min(Math.max(limit, 1), PER_TUNNEL_LIMIT),
             attributes: { exclude: ["requestBody", "responseBody", "requestHeaders", "responseHeaders"] },
         });
         return rows.map(summarise);
@@ -138,8 +162,8 @@ class TrafficLog {
         return row ? detail(row) : null;
     }
 
-    async count(tunnelId) {
-        return Request.count({ where: { tunnel: tunnelId } });
+    count(tunnelId, filter = {}) {
+        return Request.count({ where: criteria(tunnelId, filter) });
     }
 
     async forget(tunnelId) {

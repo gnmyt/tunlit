@@ -19,7 +19,7 @@ const summarise = row => ({
 class FrameLog {
     constructor() {
         this.pending = [];
-        this.open = new Set();
+        this.open = new Map();
         this.timer = null;
     }
 
@@ -34,8 +34,8 @@ class FrameLog {
         this.timer = null;
     }
 
-    opened(connection) {
-        this.open.add(connection);
+    opened(connection, writers) {
+        this.open.set(connection, writers);
     }
 
     closed(connection) {
@@ -44,6 +44,14 @@ class FrameLog {
 
     isOpen(connection) {
         return this.open.has(connection);
+    }
+
+    inject(tunnel, connection, direction, payload) {
+        const writers = this.open.get(connection);
+        if (!writers) return false;
+        writers[direction](payload);
+        this.record(tunnel, connection, direction, 1, payload);
+        return true;
     }
 
     record(tunnel, connection, direction, opcode, payload) {

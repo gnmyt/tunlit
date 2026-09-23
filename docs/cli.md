@@ -147,7 +147,7 @@ WS   101 /socket      4210ms
 ```
 
 The same requests are kept server-side and shown in the web UI, with their headers and bodies; WebSocket connections
-show their frames. From there requests can be replayed, or everything exported as a HAR file for browser devtools.
+show their messages. From there requests can be replayed, or everything exported as a HAR file for browser devtools.
 
 Options:
 

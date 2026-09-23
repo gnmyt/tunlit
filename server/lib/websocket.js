@@ -1,3 +1,5 @@
+const { randomBytes } = require("node:crypto");
+
 const MAX_FRAME = 16 * 1024 * 1024;
 
 class FrameParser {
@@ -72,4 +74,18 @@ class FrameParser {
     }
 }
 
-module.exports = { FrameParser };
+const encodeFrame = (opcode, payload, masked) => {
+    const length = payload.length;
+    const header = [0x80 | opcode];
+    if (length < 126) header.push(length);
+    else if (length < 65536) header.push(126, length >> 8, length & 0xff);
+    else header.push(127, 0, 0, 0, 0, length >>> 24, (length >>> 16) & 0xff, (length >>> 8) & 0xff, length & 0xff);
+    if (!masked) return Buffer.concat([Buffer.from(header), payload]);
+    header[1] |= 0x80;
+    const key = randomBytes(4);
+    const body = Buffer.allocUnsafe(length);
+    for (let i = 0; i < length; i++) body[i] = payload[i] ^ key[i & 3];
+    return Buffer.concat([Buffer.from(header), key, body]);
+};
+
+module.exports = { FrameParser, encodeFrame };

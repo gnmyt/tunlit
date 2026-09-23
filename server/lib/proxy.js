@@ -2,7 +2,7 @@ const http = require("node:http");
 const zlib = require("node:zlib");
 const { Transform } = require("node:stream");
 const { randomToken } = require("../utils/ids");
-const { FrameParser } = require("./websocket");
+const { FrameParser, encodeFrame } = require("./websocket");
 const { sendAppState } = require("../utils/pages");
 const { Tap, headerList } = require("./capture");
 const logger = require("../utils/logger");
@@ -325,7 +325,10 @@ const proxyUpgrade = (req, socket, head, tunnel, info, { pathMode, ws }) => {
     const connection = randomToken(16);
     const startedAt = Date.now();
     const entry = { time: startedAt, kind: "ws", method: req.method, path: stripQueryParam(req.url), status: 101, ip: info.clientIp, host: info.host, connection };
-    ws.open({ ...entry, duration: 0, request: { headers: headerList(req.headers) }, response: {} });
+    ws.open({ ...entry, duration: 0, request: { headers: headerList(req.headers) }, response: {} }, {
+        in: payload => stream.write(encodeFrame(1, payload, true)),
+        out: payload => socket.write(encodeFrame(1, payload, false)),
+    });
     socket.on("close", () => ws.close(connection, { ...entry, duration: Date.now() - startedAt }));
     const incoming = new FrameParser((opcode, payload) => ws.frame(connection, "in", opcode, payload));
     const outgoing = new FrameParser((opcode, payload) => ws.frame(connection, "out", opcode, payload), { skipHead: true });

@@ -7,6 +7,7 @@ module.exports = db.define("requests", {
     duration: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
     kind: { type: Sequelize.STRING, allowNull: false, defaultValue: "http" },
     connection: { type: Sequelize.STRING },
+    intel: { type: Sequelize.TEXT },
     method: { type: Sequelize.STRING },
     path: { type: Sequelize.TEXT },
     status: { type: Sequelize.INTEGER },
