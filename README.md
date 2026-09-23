@@ -8,7 +8,10 @@
 <br />
 
 <h1 align="center">
-  <img src="docs/public/mark.svg" alt="" height="40">&nbsp;tunlit
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/public/wordmark-dark.png">
+    <img src="docs/public/wordmark-light.png" alt="tunlit" width="198">
+  </picture>
 </h1>
 
 <p align="center">
