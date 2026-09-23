@@ -87,7 +87,7 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
 
     const handleUi = async (req, res, info, pathname) => {
         if (pathname === API_PREFIX || pathname.startsWith(`${API_PREFIX}/`)) {
-            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, info });
+            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, onRequest, info });
             if (!handled) sendJson(res, 404, { error: "not_found" });
             return;
         }

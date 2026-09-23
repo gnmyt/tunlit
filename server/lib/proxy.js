@@ -257,6 +257,50 @@ const proxyRequest = (req, res, tunnel, info, { pathMode, inject: snippet, onReq
     else req.pipe(upstream);
 };
 
+const replayRequest = (tunnel, stored, onRequest) => new Promise(resolve => {
+    const headers = {};
+    for (const [name, value] of stored.request.headers) {
+        const key = name.toLowerCase();
+        if (HOP_BY_HOP.has(key) || key === "host" || key === "content-length" || value === "[hidden]") continue;
+        headers[name] = headers[name] === undefined ? value : [].concat(headers[name], value);
+    }
+    headers.host = tunnel.keepHost ? stored.host : hostHeader(tunnel.target);
+    headers["x-forwarded-host"] = stored.host;
+    const body = stored.request.body ? Buffer.from(stored.request.body, "base64") : null;
+    if (body) headers["content-length"] = body.length;
+
+    const startedAt = Date.now();
+    const stream = tunnel.session.open({ protocol: "tcp", remote: "replay" });
+    const upstream = http.request({ createConnection: () => stream, method: stored.method, path: stored.path, headers, setHost: false });
+    let settled = false;
+    const done = (status, response) => {
+        if (settled) return;
+        settled = true;
+        onRequest({
+            time: startedAt,
+            duration: Date.now() - startedAt,
+            kind: "http",
+            method: stored.method,
+            path: stored.path,
+            status,
+            ip: "replay",
+            host: stored.host,
+            request: { headers: headerList(headers), body, bytes: body?.length || 0, truncated: false },
+            response,
+        });
+        resolve(status);
+    };
+
+    stream.on("error", () => {});
+    upstream.on("error", () => done(502, {}));
+    upstream.on("response", response => {
+        const tap = new Tap();
+        response.on("error", () => done(502, {}));
+        response.pipe(tap).on("finish", () => done(response.statusCode, { ...tap.result(), headers: headerList(response.headers) })).resume();
+    });
+    upstream.end(body);
+});
+
 const proxyUpgrade = (req, socket, head, tunnel, info, { pathMode, onRequest }) => {
     const stream = tunnel.session.open({ protocol: "tcp", remote: info.clientIp });
     const headers = buildUpstreamHeaders(req, info, tunnel, { pathMode });
@@ -283,4 +327,4 @@ const proxyUpgrade = (req, socket, head, tunnel, info, { pathMode, onRequest }) 
     stream.on("close", () => socket.destroy());
 };
 
-module.exports = { requestInfo, classifyHost, proxyRequest, proxyUpgrade, QUERY_PARAM };
+module.exports = { requestInfo, classifyHost, proxyRequest, proxyUpgrade, replayRequest, QUERY_PARAM };

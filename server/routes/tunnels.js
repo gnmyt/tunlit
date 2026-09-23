@@ -1,5 +1,5 @@
 const { Router } = require("../utils/router");
-const { listTunnels, closeTunnel, getTunnel, disconnectClient, disconnectAllClients, updateAccess, mayTouch } = require("../controllers/tunnels");
+const { listTunnels, closeTunnel, getTunnel, disconnectClient, disconnectAllClients, updateAccess, replay, mayTouch } = require("../controllers/tunnels");
 
 const app = Router();
 
@@ -29,6 +29,12 @@ app.get("/:id/requests/:requestId", async (req, res) => {
     const entry = await req.traffic.get(id, Number(req.params.requestId));
     if (!entry) return res.status(404).json({ error: "not_found", message: "That request is no longer stored" });
     res.json({ request: entry });
+});
+
+app.post("/:id/requests/:requestId/replay", async (req, res) => {
+    const result = await replay(req, req.params.id.toLowerCase(), Number(req.params.requestId));
+    if (result.code) return res.status(result.code).json(result);
+    res.json(result);
 });
 
 app.get("/:id/stats", (req, res) => {

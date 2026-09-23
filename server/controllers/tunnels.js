@@ -1,4 +1,5 @@
 const { endSession } = require("../lib/registry");
+const { replayRequest } = require("../lib/proxy");
 const { buildPolicy, describePolicy } = require("../lib/access");
 const persistent = require("../lib/persistent");
 
@@ -83,6 +84,18 @@ module.exports.updateAccess = async (registry, access, id, input, viewer) => {
     access.forget(id);
     if (tunnel.persistent) await persistent.savePolicy(tunnel.id, tunnel.policy);
     return { message: "Access updated", access: describePolicy(tunnel.policy) };
+};
+
+module.exports.replay = async (req, id, requestId) => {
+    const tunnel = req.registry.get(id);
+    if (!mayTouch(tunnel, req.session)) return { code: 404, message: "Tunnel not found" };
+    if (!tunnel.online) return { code: 502, message: "The tunnel is offline" };
+    const stored = await req.traffic.get(id, requestId);
+    if (!stored) return { code: 404, message: "That request is no longer stored" };
+    if (stored.kind === "ws") return { code: 400, message: "WebSocket connections cannot be replayed" };
+    if (stored.request.truncated) return { code: 400, message: "The request body was too large to store" };
+    const status = await replayRequest(tunnel, stored, req.onRequest(tunnel));
+    return { message: `Replayed, ${status}`, status };
 };
 
 module.exports.closeTunnel = (registry, id, viewer) => {

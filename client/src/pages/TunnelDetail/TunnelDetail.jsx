@@ -18,6 +18,12 @@ import { ArrowLeft, Bookmark, BookmarkX, ExternalLink, X } from "lucide-react";
 
 const POLL_INTERVAL = 2000;
 
+const stateOf = (live, now) => {
+    if (!live) return ["dormant", "Offline"];
+    if (live.online) return ["online", "Online"];
+    return ["offline", `Reconnecting · closes in ${formatCountdown(live.graceUntil, now)}`];
+};
+
 export const TunnelDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -128,6 +134,7 @@ export const TunnelDetail = () => {
     };
     const isHttp = tunnel.mode !== "tcp";
     const domains = definition?.domains || [];
+    const [state, stateLabel] = stateOf(live, now);
 
     return (
         <div className="page">
@@ -149,7 +156,15 @@ export const TunnelDetail = () => {
             </button>
 
             <header className="detail-head">
-                <h1>{tunnel.url || tunnel.id}</h1>
+                <div className="detail-heading">
+                    <h1>{tunnel.id}{persistent && <Bookmark className="detail-pin" aria-label="Persistent" />}</h1>
+                    <p className="detail-sub">
+                        <span className={`detail-dot ${state}`} />
+                        {stateLabel}
+                        {live && <span className="mono"> · {tunnel.target}</span>}
+                        {live && ` · started ${formatRelative(tunnel.createdAt)}`}
+                    </p>
+                </div>
                 <div className="detail-actions">
                     {live && tunnel.url && <Button type="ghost" icon={ExternalLink} title="Open"
                                                    onClick={() => window.open(tunnel.url, "_blank", "noopener")} />}
@@ -159,24 +174,6 @@ export const TunnelDetail = () => {
                     {live && <Button type="danger" icon={X} title="Close tunnel" onClick={() => setClosing(true)} />}
                 </div>
             </header>
-
-            <div className="detail-chips">
-                {live
-                    ? <span className={`chip${tunnel.online ? " online" : " offline"}`}>{tunnel.online ? "Online" : "Reconnecting"}</span>
-                    : <span className="chip">Offline</span>}
-                {persistent && <span className="chip persistent">Persistent</span>}
-                {live && <span className="chip mono">{tunnel.target}</span>}
-                {tunnel.access?.auth !== "none" && <span className="chip locked">
-                    {tunnel.access.auth === "tunlit" ? "tunlit login" : "password"}
-                </span>}
-                {tunnel.access?.allowedIps?.length > 0 && <span className="chip locked">
-                    {tunnel.access.allowedIps.length} allowed {tunnel.access.allowedIps.length === 1 ? "range" : "ranges"}
-                </span>}
-                {live && <span className="detail-started">
-                    Started {formatRelative(tunnel.createdAt)}
-                    {!tunnel.online && tunnel.graceUntil && ` · closes in ${formatCountdown(tunnel.graceUntil, now)}`}
-                </span>}
-            </div>
 
             {live
                 ? <CopyField value={tunnel.url || tunnel.shareCode} secret={!tunnel.url} />
