@@ -5,6 +5,11 @@ edition = "2021"
 description = "CLI client for tunlit"
 authors = ["Mathias Wagner"]
 license = "MIT"
+build = "build.rs"
+
+[features]
+default = ["gui"]
+gui = ["dep:eframe", "dep:rfd", "dep:tray-icon", "dep:ksni", "dep:x11rb", "dep:windows-sys"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
@@ -24,6 +29,21 @@ open = "5"
 indicatif = "0.18"
 qrcode = { version = "0.14", default-features = false }
 arboard = { version = "3", default-features = false }
+eframe = { version = "0.36", optional = true }
+rfd = { version = "0.17", optional = true, default-features = false, features = ["xdg-portal"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", optional = true, features = ["Win32_System_Console", "Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(any(windows, target_os = "macos"))'.dependencies]
+tray-icon = { version = "0.25", optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ksni = { version = "0.3", optional = true, default-features = false, features = ["tokio"] }
+x11rb = { version = "0.13", optional = true, features = ["randr"] }
+
+[build-dependencies]
+winresource = "0.1"
 
 [profile.release]
 strip = true
