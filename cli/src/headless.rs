@@ -44,26 +44,17 @@ impl Entry {
     fn options(self, name: &str) -> Result<Options> {
         let access = Access::new(self.allow, self.password, self.require_login)?;
         let id = Some(name.to_string());
-        let mut target = match (self.http, self.serve, self.tcp) {
-            (Some(http), None, None) => TargetSpec::Addr(Target::parse(&http.text())?),
-            (None, Some(dir), None) => TargetSpec::dir(&dir.to_string_lossy())?,
+        let root = match (self.http, self.serve, self.tcp) {
+            (Some(http), None, None) => RouteTarget::Addr(Target::parse(&http.text())?),
+            (None, Some(dir), None) => RouteTarget::dir(&dir.to_string_lossy())?,
             (None, None, Some(tcp)) => {
                 if !self.routes.is_empty() { bail!("{name}: routes only work with http or serve"); }
                 return Ok(Options::tcp(Target::parse(&tcp.text())?, id, access));
             }
             _ => bail!("{name}: set exactly one of http, serve or tcp"),
         };
-        if !self.routes.is_empty() {
-            let root = match target {
-                TargetSpec::Addr(addr) => RouteTarget::Addr(addr),
-                TargetSpec::Dir(dir) => RouteTarget::Dir(dir),
-                TargetSpec::Routes(_) => unreachable!(),
-            };
-            let mut list = vec![Route::new("/", root)?];
-            for (prefix, endpoint) in self.routes { list.push(Route::new(&prefix, RouteTarget::parse(&endpoint.text())?)?); }
-            target = TargetSpec::Routes(list);
-        }
-        Ok(Options::http(target, id, self.keep_host, access))
+        let routes = self.routes.into_iter().map(|(prefix, endpoint)| Route::new(&prefix, RouteTarget::parse(&endpoint.text())?)).collect::<Result<_>>()?;
+        Ok(Options::http(TargetSpec::routed(root, routes)?, id, self.keep_host, access))
     }
 }
 

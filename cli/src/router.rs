@@ -10,9 +10,9 @@ use hyper_util::rt::TokioIo;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 use crate::serve;
-use crate::tunnel::Target;
+use crate::tunnel::{connect_target, Target};
 
 pub enum RouteTarget { Addr(Target), Dir(PathBuf) }
 
@@ -36,6 +36,13 @@ impl RouteTarget {
         Ok(Self::Addr(Target::parse(raw)?))
     }
 
+    pub fn dir(raw: &str) -> Result<Self> {
+        let path = std::path::Path::new(raw);
+        if !path.exists() { bail!("\"{raw}\" does not exist"); }
+        if !path.is_dir() { bail!("\"{raw}\" is not a directory - use `tunlit http {raw}` for a port or host:port"); }
+        Ok(Self::Dir(path.to_path_buf()))
+    }
+
     pub fn label(&self) -> String {
         match self { Self::Addr(target) => target.label(), Self::Dir(dir) => dir.display().to_string() }
     }
@@ -50,14 +57,22 @@ fn normalize(prefix: &str) -> Result<String> {
 
 struct Mounted { prefix: String, target: Target, strip: bool }
 
+impl Mounted {
+    fn matches(&self, path: &str) -> bool {
+        self.prefix == "/" || (path.starts_with(&self.prefix) && matches!(path.as_bytes().get(self.prefix.len()), None | Some(b'/')))
+    }
+
+    fn rest<'a>(&self, path: &'a str) -> &'a str {
+        if !self.strip || self.prefix == "/" { return path; }
+        match &path[self.prefix.len()..] { "" => "/", rest => rest }
+    }
+}
+
 struct Table { routes: Vec<Mounted> }
 
 impl Table {
     fn pick(&self, path: &str) -> &Mounted {
-        self.routes.iter()
-            .filter(|route| route.prefix == "/" || path == route.prefix || path.starts_with(&format!("{}/", route.prefix)))
-            .max_by_key(|route| route.prefix.len())
-            .expect("the root route always matches")
+        self.routes.iter().filter(|route| route.matches(path)).max_by_key(|route| route.prefix.len()).expect("the root route always matches")
     }
 }
 
@@ -94,19 +109,9 @@ fn status(code: StatusCode) -> Response<Body> {
 }
 
 async fn connect(target: &Target) -> Result<Box<dyn Stream>> {
-    let addrs = target.resolve().await?;
-    let mut last = anyhow::anyhow!("no address");
-    for addr in addrs {
-        match TcpStream::connect(addr).await {
-            Ok(socket) => {
-                let _ = socket.set_nodelay(true);
-                if !target.tls { return Ok(Box::new(socket)); }
-                return Ok(Box::new(target.tls_connector()?.connect(&target.host, socket).await?));
-            }
-            Err(err) => last = err.into(),
-        }
-    }
-    Err(last)
+    let socket = connect_target(&target.resolve().await?).await?;
+    if !target.tls { return Ok(Box::new(socket)); }
+    Ok(Box::new(target.tls_connector()?.connect(&target.host, socket).await?))
 }
 
 trait Stream: AsyncRead + AsyncWrite + Unpin + Send {}
@@ -115,16 +120,11 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> Stream for T {}
 async fn handle(mut req: Request<Incoming>, table: Arc<Table>) -> Result<Response<Body>, hyper::Error> {
     let path = req.uri().path().to_string();
     let route = table.pick(&path);
-
     if route.strip {
-        let rest = &path[route.prefix.len().min(path.len())..];
-        let mut uri = if rest.is_empty() { "/".to_string() } else { rest.to_string() };
-        if let Some(query) = req.uri().query() { uri = format!("{uri}?{query}"); }
-        *req.uri_mut() = uri.parse().unwrap_or_else(|_| "/".parse().unwrap());
-    } else if let Some(query) = req.uri().query() {
-        *req.uri_mut() = format!("{path}?{query}").parse().unwrap_or_else(|_| "/".parse().unwrap());
-    } else {
-        *req.uri_mut() = path.parse().unwrap_or_else(|_| "/".parse().unwrap());
+        let rest = route.rest(&path);
+        let uri = match req.uri().query() { Some(query) => format!("{rest}?{query}"), None => rest.to_string() };
+        let Ok(parsed) = uri.parse() else { return Ok(status(StatusCode::BAD_REQUEST)) };
+        *req.uri_mut() = parsed;
     }
 
     let Ok(stream) = connect(&route.target).await else { return Ok(status(StatusCode::BAD_GATEWAY)) };

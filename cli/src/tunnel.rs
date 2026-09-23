@@ -79,10 +79,7 @@ pub enum TargetSpec { Addr(Target), Dir(PathBuf), Routes(Vec<Route>) }
 
 impl TargetSpec {
     pub fn with_routes(target: &str, routes: &[String]) -> Result<Self> {
-        if routes.is_empty() { return Self::parse(target); }
-        let mut list = vec![Route::new("/", RouteTarget::parse(target)?)?];
-        for raw in routes { list.push(Route::parse(raw)?); }
-        Ok(Self::Routes(list))
+        Self::routed(RouteTarget::parse(target)?, routes.iter().map(|raw| Route::parse(raw)).collect::<Result<_>>()?)
     }
 
     pub fn label(&self) -> String {
@@ -94,10 +91,15 @@ impl TargetSpec {
     }
 
     pub fn dir(raw: &str) -> Result<Self> {
-        let path = Path::new(raw);
-        if !path.exists() { bail!("\"{raw}\" does not exist"); }
-        if !path.is_dir() { bail!("\"{raw}\" is not a directory - use `tunlit http {raw}` for a port or host:port"); }
-        Ok(Self::Dir(path.to_path_buf()))
+        Self::routed(RouteTarget::dir(raw)?, Vec::new())
+    }
+
+    pub fn routed(root: RouteTarget, mut routes: Vec<Route>) -> Result<Self> {
+        if routes.is_empty() {
+            return Ok(match root { RouteTarget::Addr(target) => Self::Addr(target), RouteTarget::Dir(dir) => Self::Dir(dir) });
+        }
+        routes.insert(0, Route::new("/", root)?);
+        Ok(Self::Routes(routes))
     }
 
     pub fn parse(raw: &str) -> Result<Self> {
@@ -212,7 +214,7 @@ async fn serve_streams(events: &mut MuxEvents, target: &Target, out: &Events<Tun
     }
 }
 
-async fn connect_target(addrs: &[SocketAddr]) -> Result<TcpStream> {
+pub async fn connect_target(addrs: &[SocketAddr]) -> Result<TcpStream> {
     let mut last = anyhow::anyhow!("no address to connect to");
     for addr in addrs {
         match tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect(addr)).await {
