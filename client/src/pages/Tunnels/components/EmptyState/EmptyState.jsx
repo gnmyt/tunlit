@@ -1,12 +1,16 @@
 import "./styles.sass";
+import { useEffect, useState } from "react";
 import { Download, Waypoints } from "lucide-react";
 import CopyField from "@/common/components/CopyField";
-import { DOWNLOADS, RELEASES_URL, detectPlatform } from "./downloads.js";
+import { detectPlatform, downloadsFor } from "@/common/utils/platform.js";
 
 export const EmptyState = () => {
-    const detected = detectPlatform();
-    const primary = DOWNLOADS.find(entry => entry.key === detected);
-    const rest = DOWNLOADS.filter(entry => entry !== primary);
+    const [downloads, setDownloads] = useState(() => downloadsFor({}));
+    const [primary, ...rest] = downloads.files;
+
+    useEffect(() => {
+        detectPlatform().then(platform => setDownloads(downloadsFor(platform)));
+    }, []);
 
     return (
         <div className="empty">
@@ -22,11 +26,11 @@ export const EmptyState = () => {
                     <p>A single binary with nothing to install around it.</p>
                     {primary && <a className="empty-download" href={primary.url}>
                         <Download />
-                        <span>Download for {primary.title}</span>
+                        <span>{primary.label}</span>
                     </a>}
                     <div className="empty-platforms">
-                        {rest.map(entry => <a key={entry.key} href={entry.url}>{entry.title}</a>)}
-                        <a href={RELEASES_URL}>All releases</a>
+                        {rest.map(entry => <a key={entry.url} href={entry.url}>{entry.label}</a>)}
+                        <a href={downloads.all}>All releases</a>
                     </div>
                 </li>
                 <li>

@@ -42,10 +42,11 @@ export const detectPlatform = async () => {
 };
 
 export const downloadsFor = ({ os, arch }, version) => {
-    const all = version ? `${REPOSITORY}/releases/tag/v${version}` : `${REPOSITORY}/releases`;
-    if (!version || !os) return { version, all, files: [] };
+    const all = version ? `${REPOSITORY}/releases/tag/v${version}` : `${REPOSITORY}/releases/latest`;
+    if (!os) return { version, all, files: [] };
 
-    const file = (name, label) => ({ url: `${REPOSITORY}/releases/download/v${version}/${name}`, label });
+    const base = version ? `${REPOSITORY}/releases/download/v${version}` : `${REPOSITORY}/releases/latest/download`;
+    const file = (name, label) => ({ url: `${base}/${name}`, label });
 
     if (os === "windows") {
         return { version, all, files: [
