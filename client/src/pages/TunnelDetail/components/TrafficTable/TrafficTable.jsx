@@ -6,6 +6,7 @@ import { Activity, Pause, Play } from "lucide-react";
 import RequestDialog from "./components/RequestDialog";
 
 const POLL_INTERVAL = 1500;
+const PAGE_SIZE = 50;
 
 const statusClass = status => {
     if (status >= 500) return "error";
@@ -24,18 +25,34 @@ export const TrafficTable = ({ id }) => {
     const [paused, setPaused] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const [selected, setSelected] = useState(null);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const latest = useRef(0);
 
     const load = useCallback(async () => {
         try {
-            const data = await getRequest(`tunnels/${id}/requests?after=${latest.current}`);
+            const first = latest.current === 0;
+            const data = await getRequest(`tunnels/${id}/requests?after=${latest.current}&limit=${PAGE_SIZE}`);
             setTotal(data.total);
             setLoaded(true);
+            if (first) setHasMore(data.requests.length === PAGE_SIZE);
             if (!data.requests.length) return;
             latest.current = Math.max(latest.current, ...data.requests.map(entry => entry.id));
-            setRequests(previous => [...data.requests, ...previous].slice(0, 500));
+            setRequests(previous => [...data.requests, ...previous]);
         } catch { /* the poll retries, and the page above reports a tunnel that disappeared */ }
     }, [id]);
+
+    const loadMore = async () => {
+        const oldest = requests[requests.length - 1]?.id;
+        if (!oldest || loadingMore) return;
+        setLoadingMore(true);
+        try {
+            const data = await getRequest(`tunnels/${id}/requests?before=${oldest}&limit=${PAGE_SIZE}`);
+            setRequests(previous => [...previous, ...data.requests]);
+            setHasMore(data.requests.length === PAGE_SIZE);
+        } catch { }
+        setLoadingMore(false);
+    };
 
     useEffect(() => {
         if (paused) return;
@@ -86,6 +103,10 @@ export const TrafficTable = ({ id }) => {
                             ))}
                         </tbody>
                     </table>
+                    {hasMore && <div className="traffic-more">
+                        <Button type="ghost" text={loadingMore ? "Loading…" : "Load older requests"}
+                                buttonType="button" onClick={loadMore} disabled={loadingMore} />
+                    </div>}
                 </div>}
         </section>
     );

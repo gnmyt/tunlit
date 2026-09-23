@@ -14,7 +14,6 @@ export const TunnelItem = ({ tunnel, now }) => {
         <button type="button" className={`tunnel-row${tunnel.online ? "" : " offline"}`} onClick={open}>
             <span className={`tunnel-dot${tunnel.online ? "" : " offline"}`} />
             <span className="tunnel-id">{tunnel.id}</span>
-            <span className="tunnel-mode">{tunnel.mode}</span>
             {foreign && <span className="tunnel-owner">{tunnel.owner}</span>}
             <span className="tunnel-endpoint">{tunnel.url || `${tunnel.target} · tcp+udp`}</span>
             <span className="tunnel-spacer" />

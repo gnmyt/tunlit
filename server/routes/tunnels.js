@@ -17,7 +17,9 @@ app.get("/:id/requests", async (req, res) => {
     const id = req.params.id.toLowerCase();
     if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
     const after = Number(req.query.get("after")) || 0;
-    const [requests, total] = await Promise.all([req.traffic.list(id, { after }), req.traffic.count(id)]);
+    const before = Number(req.query.get("before")) || 0;
+    const limit = Number(req.query.get("limit")) || undefined;
+    const [requests, total] = await Promise.all([req.traffic.list(id, { after, before, limit }), req.traffic.count(id)]);
     res.json({ requests, total, now: Date.now() });
 });
 

@@ -3,6 +3,7 @@ const Request = require("../models/Request");
 const logger = require("../utils/logger");
 
 const PER_TUNNEL_LIMIT = 200;
+const PAGE_SIZE = 50;
 const FLUSH_INTERVAL = 500;
 
 const toText = body => (body ? Buffer.from(body).toString("base64") : null);
@@ -101,12 +102,13 @@ class TrafficLog {
         await Request.destroy({ where: { tunnel, id: { [Op.lte]: rows[0].id } } });
     }
 
-    async list(tunnelId, { after = 0, limit = PER_TUNNEL_LIMIT } = {}) {
+    async list(tunnelId, { after = 0, before = 0, limit = PAGE_SIZE } = {}) {
         await this.flush();
         const where = { tunnel: tunnelId };
         if (after) where.id = { [Op.gt]: after };
+        if (before) where.id = { ...where.id, [Op.lt]: before };
         const rows = await Request.findAll({
-            where, order: [["id", "DESC"]], limit,
+            where, order: [["id", "DESC"]], limit: Math.min(Math.max(limit, 1), PER_TUNNEL_LIMIT),
             attributes: { exclude: ["requestBody", "responseBody", "requestHeaders", "responseHeaders"] },
         });
         return rows.map(summarise);

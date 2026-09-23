@@ -110,7 +110,6 @@ export const TunnelDetail = () => {
                 <span className={`chip${tunnel.online ? " online" : " offline"}`}>
                     {tunnel.online ? "Online" : "Reconnecting"}
                 </span>
-                <span className="chip">{tunnel.mode}</span>
                 <span className="chip mono">{tunnel.target}</span>
                 {tunnel.access?.auth !== "none" && <span className="chip locked">
                     {tunnel.access.auth === "tunlit" ? "tunlit login" : "password"}
