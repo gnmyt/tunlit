@@ -52,14 +52,18 @@ impl ApiClient {
         Ok(response.json().await?)
     }
 
-    pub async fn whoami(&self) -> Result<()> {
+    pub async fn get<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T> {
         let token = self.token.as_deref().ok_or_else(|| anyhow::anyhow!("Not authenticated"))?;
-        let resp = self.client.get(self.url("/whoami")).header("Authorization", format!("Bearer {token}")).send().await?;
-        match resp.status().as_u16() {
-            200 => Ok(()),
-            401 => bail!("The token was rejected by the server"),
+        let response = self.client.get(self.url(path)).header("Authorization", format!("Bearer {token}")).send().await?;
+        match response.status().as_u16() {
+            200 => Ok(response.json().await?),
+            401 => bail!("This device is not linked any more. Run `tunlit login`"),
             other => bail!("Unexpected response from server: {other}"),
         }
+    }
+
+    pub async fn whoami(&self) -> Result<()> {
+        self.get::<serde_json::Value>("/whoami").await.map(|_| ())
     }
 }
 

@@ -1,6 +1,6 @@
 const { Router } = require("../utils/router");
 const { getSettings, updateSettings, changePassword } = require("../controllers/settings");
-const { requireAdmin } = require("../middlewares/auth");
+const { requireAdmin, requireBrowser } = require("../middlewares/auth");
 
 const app = Router();
 
@@ -14,7 +14,7 @@ app.put("/", requireAdmin, async (req, res) => {
     res.json(result);
 });
 
-app.put("/password", async (req, res) => {
+app.put("/password", requireBrowser, async (req, res) => {
     const result = await changePassword(req.account, req.body);
     if (result.code) return res.status(result.code).json(result);
     res.json(result);

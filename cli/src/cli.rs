@@ -158,6 +158,64 @@ pub async fn connect(target: String, port: Option<u16>, bind: String, server: Op
     }, connect::run(opts, events, stop)).await
 }
 
+#[derive(serde::Deserialize)]
+struct Listed {
+    id: String,
+    target: String,
+    url: Option<String>,
+    online: bool,
+    #[serde(rename = "graceUntil")] grace_until: Option<u64>,
+    joiners: u64,
+    persistent: bool,
+    #[serde(rename = "customUrls")] custom_urls: Vec<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct Tunnels { tunnels: Vec<Listed>, now: u64 }
+
+#[derive(serde::Deserialize)]
+struct Saved { name: String, url: String, live: bool }
+
+#[derive(serde::Deserialize)]
+struct Persistent { tunnels: Vec<Saved> }
+
+fn mark(name: &str, persistent: bool) -> String { if persistent { format!("{name} *") } else { name.to_string() } }
+
+pub async fn list() -> Result<()> {
+    let cfg = Config::load()?;
+    let (server_url, token) = cfg.require_auth()?;
+    let api = crate::api::ApiClient::new(&server_url, Some(&token), cfg.accept_invalid_certs)?;
+    let (live, saved): (Tunnels, Persistent) = tokio::try_join!(api.get("/tunnels"), api.get("/persistent"))?;
+
+    let mut rows: Vec<[String; 4]> = live.tunnels.iter().map(|tunnel| {
+        let state = if tunnel.online { style("● online").green().to_string() }
+            else if let Some(until) = tunnel.grace_until { style(format!("○ closes in {}s", until.saturating_sub(live.now) / 1000)).yellow().to_string() }
+            else { style("○ offline").yellow().to_string() };
+        let address = match &tunnel.url {
+            Some(url) => std::iter::once(url.as_str()).chain(tunnel.custom_urls.iter().map(String::as_str)).collect::<Vec<_>>().join(", "),
+            None => format!("tcp+udp · {} connected", tunnel.joiners),
+        };
+        [mark(&tunnel.id, tunnel.persistent), state, address, tunnel.target.clone()]
+    }).collect();
+    rows.extend(saved.tunnels.iter().filter(|saved| !saved.live)
+        .map(|saved| [mark(&saved.name, true), style("○ offline").dim().to_string(), saved.url.clone(), String::new()]));
+
+    if rows.is_empty() {
+        println!("No tunnels. Start one with {}", style("tunlit http 3000").cyan());
+        return Ok(());
+    }
+    let widths: Vec<usize> = (0..3).map(|column| rows.iter().map(|row| console::measure_text_width(&row[column])).max().unwrap()).collect();
+    for [name, state, address, target] in &rows {
+        println!("{}  {}  {}  {}",
+            style(console::pad_str(name, widths[0], console::Alignment::Left, None)).bold(),
+            console::pad_str(state, widths[1], console::Alignment::Left, None),
+            style(console::pad_str(address, widths[2], console::Alignment::Left, None)).cyan(),
+            style(target).dim());
+    }
+    if rows.iter().any(|row| row[0].ends_with('*')) { println!("{}", style("* persistent").dim()); }
+    Ok(())
+}
+
 pub async fn login() -> Result<()> {
     let cfg = Config::load()?;
 

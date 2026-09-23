@@ -62,6 +62,8 @@ enum Commands {
         #[arg(short, long, default_value = "127.0.0.1")] bind: String,
         #[arg(short, long)] server: Option<String>,
     },
+    #[command(alias = "status")]
+    Ls,
     Start {
         #[arg(short, long, value_name = "FILE")] config: Option<PathBuf>,
     },
@@ -145,6 +147,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         Commands::Tcp { target, name, allow, shape } =>
             cli::tunnel(tunnel::Options::tcp(tunnel::Target::parse(&target)?, name, tunnel::Access::new(allow, None, false)?).shaped(shape.parse()?)).await,
         Commands::Connect { target, port, bind, server } => cli::connect(target, port, bind, server).await,
+        Commands::Ls => cli::list().await,
         Commands::Start { config } => headless::run(config).await,
         Commands::Service { action } => match action {
             ServiceAction::Install => service::install(),

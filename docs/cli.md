@@ -202,6 +202,15 @@ port number; if it is taken you are asked for another one.
 | `--bind <addr>`  | Local address to bind (default `127.0.0.1`). Use `0.0.0.0` to let other machines in your LAN use the forward. |
 | `--server <url>` | tunlit server URL. Only needed when a bare code was pasted instead of the link.                               |
 
+### Listing tunnels
+
+```sh
+tunlit ls
+```
+
+Your tunnels on the server, online or not, with their addresses. Persistent ones are marked with `*`.
+`tunlit status` does the same.
+
 ### Configuration
 
 ```sh
