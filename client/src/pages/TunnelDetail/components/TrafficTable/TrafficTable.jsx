@@ -39,7 +39,7 @@ export const TrafficTable = ({ id }) => {
             if (!data.requests.length) return;
             latest.current = Math.max(latest.current, ...data.requests.map(entry => entry.id));
             setRequests(previous => [...data.requests, ...previous]);
-        } catch { /* the poll retries, and the page above reports a tunnel that disappeared */ }
+        } catch { }
     }, [id]);
 
     const loadMore = async () => {
@@ -50,8 +50,11 @@ export const TrafficTable = ({ id }) => {
             const data = await getRequest(`tunnels/${id}/requests?before=${oldest}&limit=${PAGE_SIZE}`);
             setRequests(previous => [...previous, ...data.requests]);
             setHasMore(data.requests.length === PAGE_SIZE);
-        } catch { }
-        setLoadingMore(false);
+        } catch {
+            setHasMore(true);
+        } finally {
+            setLoadingMore(false);
+        }
     };
 
     useEffect(() => {
