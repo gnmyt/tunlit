@@ -1,6 +1,8 @@
 const http = require("node:http");
 const zlib = require("node:zlib");
 const { Transform } = require("node:stream");
+const { randomToken } = require("../utils/ids");
+const { FrameParser } = require("./websocket");
 const { sendAppState } = require("../utils/pages");
 const { Tap, headerList } = require("./capture");
 const logger = require("../utils/logger");
@@ -158,7 +160,7 @@ const decoderFor = encoding => {
     }
 };
 
-const observe = (req, res, tunnel, info, onRequest, extra = {}) => {
+const observe = (req, info, onRequest) => {
     if (!onRequest) return;
     const startedAt = Date.now();
     let done = false;
@@ -168,6 +170,7 @@ const observe = (req, res, tunnel, info, onRequest, extra = {}) => {
         onRequest({
             time: startedAt,
             duration: Date.now() - startedAt,
+            kind: "http",
             method: req.method,
             path: stripQueryParam(req.url),
             status,
@@ -175,7 +178,6 @@ const observe = (req, res, tunnel, info, onRequest, extra = {}) => {
             host: info.host,
             request: { headers: headerList(req.headers), ...(captured.request || {}) },
             response: captured.response || {},
-            ...extra,
         });
     };
     return finish;
@@ -195,7 +197,7 @@ const proxyRequest = (req, res, tunnel, info, { pathMode, inject: snippet, onReq
         setHost: false,
     });
 
-    const finish = observe(req, res, tunnel, info, onRequest, { kind: "http" });
+    const finish = observe(req, info, onRequest);
     const requestTap = finish ? new Tap() : null;
     let responseTap = null;
     const captured = () => ({
@@ -301,7 +303,14 @@ const replayRequest = (tunnel, stored, onRequest) => new Promise(resolve => {
     upstream.end(body);
 });
 
-const proxyUpgrade = (req, socket, head, tunnel, info, { pathMode, onRequest }) => {
+const tap = parser => new Transform({
+    transform(chunk, _encoding, callback) {
+        parser.push(chunk);
+        callback(null, chunk);
+    },
+});
+
+const proxyUpgrade = (req, socket, head, tunnel, info, { pathMode, ws }) => {
     const stream = tunnel.session.open({ protocol: "tcp", remote: info.clientIp });
     const headers = buildUpstreamHeaders(req, info, tunnel, { pathMode });
     headers.connection = "Upgrade";
@@ -313,13 +322,21 @@ const proxyUpgrade = (req, socket, head, tunnel, info, { pathMode, onRequest }) 
     }
     raw += "\r\n";
 
-    const finish = observe(req, socket, tunnel, info, onRequest, { kind: "ws", statusText: "websocket" });
-    if (finish) socket.on("close", () => finish(101));
+    const connection = randomToken(16);
+    const startedAt = Date.now();
+    const entry = { time: startedAt, kind: "ws", method: req.method, path: stripQueryParam(req.url), status: 101, ip: info.clientIp, host: info.host, connection };
+    ws.open({ ...entry, duration: 0, request: { headers: headerList(req.headers) }, response: {} });
+    socket.on("close", () => ws.close(connection, { ...entry, duration: Date.now() - startedAt }));
+    const incoming = new FrameParser((opcode, payload) => ws.frame(connection, "in", opcode, payload));
+    const outgoing = new FrameParser((opcode, payload) => ws.frame(connection, "out", opcode, payload), { skipHead: true });
 
     stream.write(raw);
-    if (head && head.length) stream.write(head);
+    if (head.length) {
+        stream.write(head);
+        incoming.push(head);
+    }
     socket.setNoDelay(true);
-    socket.pipe(stream).pipe(socket);
+    socket.pipe(tap(incoming)).pipe(stream).pipe(tap(outgoing)).pipe(socket);
     const bail = () => { socket.destroy(); stream.destroy(); };
     stream.on("error", bail);
     socket.on("error", bail);

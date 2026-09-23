@@ -12,6 +12,7 @@ const { AttemptLimiter } = require("./utils/attempts");
 const { CertificateManager } = require("./lib/tls/manager");
 const { DomainManager } = require("./lib/domains");
 const { Quotas } = require("./lib/quotas");
+const { FrameLog } = require("./lib/wsframes");
 const { isSetupRequired } = require("./controllers/setup");
 const db = require("./utils/database");
 const { runMigrations } = require("./utils/migrationRunner");
@@ -37,6 +38,7 @@ const domains = new DomainManager({ config, certificates });
 const quotas = new Quotas();
 const registry = new Registry(config, domains, quotas);
 const traffic = new TrafficLog();
+const frames = new FrameLog();
 const access = new AccessStore();
 const stats = new Stats(registry, quotas);
 quotas.on("exceeded", accountId => registry.closeFor(accountId, "monthly traffic limit reached"));
@@ -48,7 +50,7 @@ registry.on("forget", tunnel => {
 const sessions = new SessionStore();
 const attempts = new AttemptLimiter();
 const control = createControlServer({ config, auth, registry });
-const router = createRouter({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, control });
+const router = createRouter({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, control });
 
 const SERVER_OPTIONS = { keepAliveTimeout: 65_000, requestTimeout: 0, headersTimeout: 60_000 };
 
@@ -130,6 +132,7 @@ const start = async () => {
     quotas.start();
     stats.start();
     traffic.start();
+    frames.start();
     buildServers();
     let remaining = servers.length;
     for (const { server, port, name } of servers) {
@@ -159,6 +162,7 @@ const shutdown = signal => {
     certificates.stop();
     stats.stop();
     traffic.stop();
+    frames.stop();
     for (const { server } of servers) server.close();
     setTimeout(() => process.exit(0), 3000).unref();
 };

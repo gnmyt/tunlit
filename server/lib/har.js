@@ -11,7 +11,14 @@ const text = body => {
     return Buffer.from(decoded, "utf8").equals(bytes) ? { text: decoded } : { text: body, encoding: "base64" };
 };
 
-const entry = (row, scheme) => {
+const message = frame => ({
+    type: frame.direction === "in" ? "send" : "receive",
+    time: frame.time / 1000,
+    opcode: frame.opcode,
+    data: frame.payload ? Buffer.from(frame.payload, "base64").toString(frame.opcode === 1 ? "utf8" : "base64") : "",
+});
+
+const entry = (row, scheme, frames) => {
     const url = new URL(row.path, `${scheme}://${row.host}`);
     return {
         startedDateTime: new Date(row.time).toISOString(),
@@ -41,14 +48,15 @@ const entry = (row, scheme) => {
         cache: {},
         timings: { send: 0, wait: row.duration, receive: 0 },
         ...(row.ip && { serverIPAddress: row.ip }),
+        ...(row.kind === "ws" && { _webSocketMessages: (frames.get(row.connection) || []).map(message) }),
     };
 };
 
-const toHar = (rows, scheme) => ({
+const toHar = (rows, scheme, frames) => ({
     log: {
         version: "1.2",
         creator: { name: "tunlit", version: packageJson.version },
-        entries: rows.map(row => entry(row, scheme)),
+        entries: rows.map(row => entry(row, scheme, frames)),
     },
 });
 

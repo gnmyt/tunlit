@@ -160,3 +160,50 @@
   justify-content: flex-end
   gap: 0.5rem
   margin-top: 0.5rem
+
+.frames
+  display: flex
+  flex-direction: column
+  border: 1px solid colors.$border
+  border-radius: 0.625rem
+  overflow: hidden
+
+.frame
+  display: grid
+  grid-template-columns: 1rem 3.25rem 1fr auto
+  align-items: baseline
+  gap: 0.625rem
+  padding: 0.3125rem 0.625rem
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
+  font-size: 0.75rem
+  cursor: pointer
+
+  &:nth-child(odd)
+    background-color: colors.$surface
+
+  svg
+    width: 0.75rem
+    height: 0.75rem
+    align-self: center
+    color: var(--chart-in)
+
+  &.out svg
+    color: var(--chart-out)
+
+  &.expanded .frame-payload
+    white-space: pre-wrap
+    word-break: break-all
+
+.frame-kind
+  color: colors.$muted
+
+.frame-payload
+  min-width: 0
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
+  color: colors.$text
+
+.frame-meta
+  color: colors.$muted
+  white-space: nowrap

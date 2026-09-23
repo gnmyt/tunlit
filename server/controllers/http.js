@@ -19,14 +19,28 @@ const wantsHtml = req => /\btext\/html\b/.test(req.headers.accept || "");
 
 const ACME_PREFIX = "/.well-known/acme-challenge/";
 
-const createRouter = ({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, control }) => {
+const createRouter = ({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, control }) => {
+    const announce = (tunnel, entry) => {
+        if (tunnel.session && !tunnel.session.closed) tunnel.session.sendControl({ type: "request", ...entry });
+    };
     const onRequest = tunnel => entry => {
         traffic.record(tunnel.id, entry);
         stats.recordRequest(tunnel.id);
-        if (tunnel.session && !tunnel.session.closed) {
-            tunnel.session.sendControl({ type: "request", ...entry });
-        }
+        announce(tunnel, entry);
     };
+    const websocket = tunnel => ({
+        open: entry => {
+            traffic.record(tunnel.id, entry);
+            stats.recordRequest(tunnel.id);
+            frames.opened(entry.connection);
+        },
+        frame: (connection, direction, opcode, payload) => frames.record(tunnel.id, connection, direction, opcode, payload),
+        close: (connection, entry) => {
+            frames.closed(connection);
+            traffic.finish(connection, entry.duration).catch(() => null);
+            announce(tunnel, entry);
+        },
+    });
     const api = createApp();
     api.use(API_PREFIX, require("../routes/service"));
     api.use(`${API_PREFIX}/setup`, require("../routes/setup"));
@@ -87,7 +101,7 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
 
     const handleUi = async (req, res, info, pathname) => {
         if (pathname === API_PREFIX || pathname.startsWith(`${API_PREFIX}/`)) {
-            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, onRequest, info });
+            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, onRequest, info });
             if (!handled) sendJson(res, 404, { error: "not_found" });
             return;
         }
@@ -226,7 +240,7 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
                 return reject(401, "Unauthorized");
             }
         }
-        proxyUpgrade(req, socket, head, target.tunnel, info, { pathMode: host.kind === "base", onRequest: onRequest(target.tunnel) });
+        proxyUpgrade(req, socket, head, target.tunnel, info, { pathMode: host.kind === "base", ws: websocket(target.tunnel) });
     };
 
     return {

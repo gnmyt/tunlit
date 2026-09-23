@@ -1,5 +1,6 @@
 const { Op } = require("sequelize");
 const Request = require("../models/Request");
+const Frame = require("../models/Frame");
 const logger = require("../utils/logger");
 
 const PER_TUNNEL_LIMIT = 200;
@@ -13,6 +14,7 @@ const summarise = row => ({
     time: new Date(row.time).getTime(),
     duration: row.duration,
     kind: row.kind,
+    connection: row.connection,
     method: row.method,
     path: row.path,
     status: row.status,
@@ -64,6 +66,7 @@ class TrafficLog {
             time: new Date(entry.time),
             duration: entry.duration || 0,
             kind: entry.kind || "http",
+            connection: entry.connection || null,
             method: entry.method || null,
             path: entry.path || null,
             status: entry.status || null,
@@ -99,7 +102,16 @@ class TrafficLog {
             where: { tunnel }, order: [["id", "DESC"]], offset: this.limit, limit: 1, attributes: ["id"],
         });
         if (!rows.length) return;
-        await Request.destroy({ where: { tunnel, id: { [Op.lte]: rows[0].id } } });
+        const stale = { tunnel, id: { [Op.lte]: rows[0].id } };
+        const connections = (await Request.findAll({ where: { ...stale, connection: { [Op.ne]: null } }, attributes: ["connection"] })).map(row => row.connection);
+        if (connections.length) await Frame.destroy({ where: { connection: connections } });
+        await Request.destroy({ where: stale });
+    }
+
+    async finish(connection, duration) {
+        const row = this.pending.find(entry => entry.connection === connection);
+        if (row) row.duration = duration;
+        else await Request.update({ duration }, { where: { connection } });
     }
 
     async list(tunnelId, { after = 0, before = 0, limit = PAGE_SIZE } = {}) {
@@ -133,6 +145,7 @@ class TrafficLog {
     async forget(tunnelId) {
         this.pending = this.pending.filter(row => row.tunnel !== tunnelId);
         this.counts.delete(tunnelId);
+        await Frame.destroy({ where: { tunnel: tunnelId } });
         const removed = await Request.destroy({ where: { tunnel: tunnelId } });
         if (removed) logger.debug(`Dropped ${removed} stored request(s) for ${tunnelId}`);
     }

@@ -9,6 +9,7 @@ import { useToast } from "@/common/contexts/toast.js";
 import { Pencil, RotateCcw } from "lucide-react";
 import { BodyView } from "./BodyView.jsx";
 import { RequestEdit } from "./RequestEdit.jsx";
+import { FramesView } from "./FramesView.jsx";
 
 export const RequestDialog = ({ tunnelId, entry, onClose }) => {
     const { sendToast } = useToast();
@@ -61,22 +62,24 @@ export const RequestDialog = ({ tunnelId, entry, onClose }) => {
                 {!detail && !error && <Loading />}
                 {error && <p className="request-dialog-error">{error}</p>}
 
-                {detail && editing && (
+                {entry && detail && editing && (
                     <RequestEdit entry={entry} detail={detail} busy={replaying} onSend={replay} onCancel={() => setEditing(false)} />
                 )}
 
-                {detail && !editing && (
+                {entry && detail && !editing && (
                     <div className="request-dialog-body">
                         <section>
                             <h3>Request <span>{formatBytes(detail.request.bytes)}</span></h3>
                             <HeaderTable headers={detail.request.headers} />
                             <BodyView part={detail.request} headers={detail.request.headers} />
                         </section>
-                        <section>
-                            <h3>Response <span>{formatBytes(detail.response.bytes)}</span></h3>
-                            <HeaderTable headers={detail.response.headers} />
-                            <BodyView part={detail.response} headers={detail.response.headers} />
-                        </section>
+                        {entry.kind === "ws"
+                            ? <FramesView tunnelId={tunnelId} entry={entry} />
+                            : <section>
+                                <h3>Response <span>{formatBytes(detail.response.bytes)}</span></h3>
+                                <HeaderTable headers={detail.response.headers} />
+                                <BodyView part={detail.response} headers={detail.response.headers} />
+                            </section>}
                     </div>
                 )}
             </div>

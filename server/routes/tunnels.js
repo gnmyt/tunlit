@@ -17,7 +17,9 @@ app.get("/:id", async (req, res) => {
 app.get("/:id/requests.har", async (req, res) => {
     const id = req.params.id.toLowerCase();
     if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
-    res.header("Content-Disposition", `attachment; filename="${id}.har"`).json(toHar(await req.traffic.all(id), req.config.publicScheme));
+    const rows = await req.traffic.all(id);
+    const frames = await req.frames.forConnections(id, rows.filter(row => row.connection).map(row => row.connection));
+    res.header("Content-Disposition", `attachment; filename="${id}.har"`).json(toHar(rows, req.config.publicScheme, frames));
 });
 
 app.get("/:id/requests", async (req, res) => {
@@ -28,6 +30,15 @@ app.get("/:id/requests", async (req, res) => {
     const limit = Number(req.query.get("limit")) || undefined;
     const [requests, total] = await Promise.all([req.traffic.list(id, { after, before, limit }), req.traffic.count(id)]);
     res.json({ requests, total, now: Date.now() });
+});
+
+app.get("/:id/requests/:requestId/frames", async (req, res) => {
+    const id = req.params.id.toLowerCase();
+    if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
+    const entry = await req.traffic.get(id, Number(req.params.requestId));
+    if (!entry?.connection) return res.status(404).json({ error: "not_found", message: "No frames for that request" });
+    const after = Number(req.query.get("after")) || 0;
+    res.json({ frames: await req.frames.list(id, entry.connection, after), open: req.frames.isOpen(entry.connection), now: Date.now() });
 });
 
 app.get("/:id/requests/:requestId", async (req, res) => {

@@ -6,6 +6,7 @@ module.exports = db.define("requests", {
     time: { type: Sequelize.DATE, allowNull: false },
     duration: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
     kind: { type: Sequelize.STRING, allowNull: false, defaultValue: "http" },
+    connection: { type: Sequelize.STRING },
     method: { type: Sequelize.STRING },
     path: { type: Sequelize.TEXT },
     status: { type: Sequelize.INTEGER },
