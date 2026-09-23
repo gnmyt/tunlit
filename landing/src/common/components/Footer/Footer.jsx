@@ -10,7 +10,7 @@ export const Footer = () => (
             <div className="footer-brand">
                 <Link to="/" className="footer-logo">
                     <TunlitLogo size={22} />
-                    <span>tunlit</span>
+                    <span className="wordmark">tunl<em>it</em></span>
                 </Link>
                 <p>Self-hosted tunnels. MIT licensed.</p>
             </div>

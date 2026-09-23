@@ -25,7 +25,7 @@ export const Navigation = () => {
             <div className="nav-inner">
                 <Link to="/" className="nav-brand">
                     <TunlitLogo size={26} />
-                    <span>tunlit</span>
+                    <span className="wordmark">tunl<em>it</em></span>
                 </Link>
                 <nav className="nav-links">{links}</nav>
                 <a className="nav-github" href={GITHUB_URL} target="_blank" rel="noreferrer">

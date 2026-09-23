@@ -30,7 +30,7 @@ export const TopNav = () => {
             <div className="topnav-inner">
                 <div className="topnav-brand" onClick={() => navigate("/tunnels")}>
                     <TunlitLogo size={26} />
-                    <span>tunlit</span>
+                    <span className="wordmark">tunl<em>it</em></span>
                 </div>
                 <nav className="topnav-links">
                     {getNavigation().map(({ key, path, title, icon: Glyph }) => (

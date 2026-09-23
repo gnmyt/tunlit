@@ -59,7 +59,7 @@ export const Footer = () => {
         <footer className="app-footer">
             <div className="app-footer-inner">
                 <div className="app-footer-group">
-                    <span className="app-footer-brand">tunlit</span>
+                    <span className="app-footer-brand wordmark">tunl<em>it</em></span>
                     {version && (
                         <a className="app-footer-version" href={`${GITHUB_URL}/releases/tag/v${version}`} target="_blank"
                            rel="noreferrer" title="Release notes">v{version}</a>
