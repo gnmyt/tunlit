@@ -7,16 +7,19 @@
              Scope="perMachine"
              Compressed="yes">
 
-        <SummaryInformation Description="tunlit CLI" Manufacturer="Mathias Wagner" />
+        <SummaryInformation Description="tunlit" Manufacturer="Mathias Wagner" />
 
         <MajorUpgrade DowngradeErrorMessage="A newer version of tunlit is already installed." />
         <MediaTemplate EmbedCab="yes" />
 
         <Property Id="ARPURLINFOABOUT" Value="https://github.com/gnmyt/tunlit" />
+        <Property Id="ARPPRODUCTICON" Value="tunlit.exe" />
+        <Icon Id="tunlit.exe" SourceFile="$(var.BinPath)" />
 
         <StandardDirectory Id="ProgramFiles64Folder">
             <Directory Id="INSTALLFOLDER" Name="tunlit" />
         </StandardDirectory>
+        <StandardDirectory Id="ProgramMenuFolder" />
 
         <Feature Id="Main" Title="tunlit" Level="1">
             <ComponentGroupRef Id="Components" />
@@ -35,6 +38,18 @@
                              Permanent="no" />
             </Component>
 
+            <Component Id="StartMenuShortcut">
+                <RegistryValue Root="HKLM" Key="Software\tunlit" Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
+                <Shortcut Id="TunlitShortcut"
+                          Directory="ProgramMenuFolder"
+                          Name="tunlit"
+                          Description="Share local ports through your own tunlit server"
+                          Target="[INSTALLFOLDER]tunlit.exe"
+                          Arguments="gui"
+                          WorkingDirectory="INSTALLFOLDER"
+                          Icon="tunlit.exe" />
+            </Component>
+
             <Component Id="UrlScheme">
                 <RegistryKey Root="HKLM" Key="Software\Classes\tunlit">
                     <RegistryValue Type="string" Value="URL:tunlit" KeyPath="yes" />
@@ -45,7 +60,7 @@
                 </RegistryKey>
                 <RegistryKey Root="HKLM" Key="Software\Classes\tunlit\shell\open\command">
                     <RegistryValue Type="string"
-                                   Value="&quot;[System64Folder]cmd.exe&quot; /k &quot;&quot;[INSTALLFOLDER]tunlit.exe&quot; connect &quot;%1&quot;&quot;" />
+                                   Value="&quot;[INSTALLFOLDER]tunlit.exe&quot; gui &quot;%1&quot;" />
                 </RegistryKey>
             </Component>
         </ComponentGroup>

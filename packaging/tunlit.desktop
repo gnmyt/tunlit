@@ -1,9 +1,10 @@
 [Desktop Entry]
 Type=Application
 Name=tunlit
-Comment=Open a tunlit share link
-Exec=/usr/bin/tunlit connect %u
-Terminal=true
-NoDisplay=true
+Comment=Share local ports through your own tunlit server
+Exec=/usr/bin/tunlit gui %u
+Icon=tunlit
+Terminal=false
+StartupWMClass=dev.tunlit.cli
 MimeType=x-scheme-handler/tunlit;
-Categories=Network;
+Categories=Network;Utility;
