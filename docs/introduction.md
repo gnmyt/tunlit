@@ -38,4 +38,4 @@ databases.
 ![The page behind a share link](/screenshots/connect.png)
 
 Read on: [Installation](/installation) · [Configuration](/configuration) · [Reverse proxy](/reverse-proxy) ·
-[CLI](/cli) · [HTTPS](/https)
+[CLI](/cli) · [HTTPS](/https) · [Persistent tunnels](/persistent)

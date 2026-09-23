@@ -62,6 +62,8 @@ const createControlServer = ({ config, auth, registry }) => {
                             id: tunnel.id,
                             mode: tunnel.mode,
                             url: registry.publicUrl(tunnel),
+                            customUrls: registry.customUrls(tunnel),
+                            persistent: tunnel.persistent,
                             shareCode: tunnel.shareCode,
                             connectUrl: registry.connectUrl(tunnel),
                             resumeToken: tunnel.resumeToken,

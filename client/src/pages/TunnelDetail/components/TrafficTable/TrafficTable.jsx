@@ -39,7 +39,9 @@ export const TrafficTable = ({ id }) => {
             if (!data.requests.length) return;
             latest.current = Math.max(latest.current, ...data.requests.map(entry => entry.id));
             setRequests(previous => [...data.requests, ...previous]);
-        } catch { }
+        } catch {
+            return;
+        }
     }, [id]);
 
     const loadMore = async () => {

@@ -29,6 +29,8 @@ pub struct Online {
     pub url: Option<String>,
     pub share_code: Option<String>,
     pub connect_url: Option<String>,
+    pub custom_urls: Vec<String>,
+    pub persistent: bool,
 }
 
 impl Online {

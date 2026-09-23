@@ -1,12 +1,14 @@
 const { endSession } = require("../lib/registry");
 const { buildPolicy, describePolicy } = require("../lib/access");
-const tunnelStore = require("../lib/tunnelStore");
+const persistent = require("../lib/persistent");
 
 const serializeTunnel = (registry, tunnel) => ({
     id: tunnel.id,
     mode: tunnel.mode,
     target: tunnel.target.authority,
     url: registry.publicUrl(tunnel),
+    customUrls: registry.customUrls(tunnel),
+    persistent: tunnel.persistent,
     shareCode: tunnel.shareCode,
     online: tunnel.online,
     graceUntil: tunnel.graceUntil,
@@ -79,7 +81,7 @@ module.exports.updateAccess = async (registry, access, id, input, viewer) => {
     }
 
     access.forget(id);
-    await tunnelStore.save(tunnel.id, tunnel.accountId, tunnel.policy);
+    if (tunnel.persistent) await persistent.savePolicy(tunnel.id, tunnel.policy);
     return { message: "Access updated", access: describePolicy(tunnel.policy) };
 };
 

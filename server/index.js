@@ -10,6 +10,7 @@ const { DeviceStore } = require("./lib/devices");
 const { SessionStore } = require("./lib/sessions");
 const { AttemptLimiter } = require("./utils/attempts");
 const { CertificateManager } = require("./lib/tls/manager");
+const { DomainManager } = require("./lib/domains");
 const { isSetupRequired } = require("./controllers/setup");
 const db = require("./utils/database");
 const { runMigrations } = require("./utils/migrationRunner");
@@ -30,7 +31,9 @@ try {
 
 const devices = new DeviceStore();
 const auth = createAuth(devices);
-const registry = new Registry(config);
+const certificates = new CertificateManager(config);
+const domains = new DomainManager({ config, certificates });
+const registry = new Registry(config, domains);
 const traffic = new TrafficLog();
 const access = new AccessStore();
 const stats = new Stats(registry);
@@ -41,9 +44,8 @@ registry.on("forget", tunnel => {
 });
 const sessions = new SessionStore();
 const attempts = new AttemptLimiter();
-const certificates = new CertificateManager(config);
 const control = createControlServer({ config, auth, registry });
-const router = createRouter({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, control });
+const router = createRouter({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, control });
 
 const SERVER_OPTIONS = { keepAliveTimeout: 65_000, requestTimeout: 0, headersTimeout: 60_000 };
 
@@ -77,8 +79,8 @@ const buildServers = () => {
 
     const secure = https.createServer({
         ...SERVER_OPTIONS,
-        SNICallback: (_name, callback) => {
-            const context = certificates.secureContext();
+        SNICallback: (servername, callback) => {
+            const context = certificates.secureContextFor(servername);
             if (!context) return callback(new Error("tunlit has no certificate yet"));
             callback(null, context);
         },
@@ -111,6 +113,7 @@ const start = async () => {
 
     if (config.managesTls) {
         await certificates.load();
+        await certificates.loadExtra();
         certificates.start();
         if (!certificates.covers()) {
             logger.warn(`No certificate for ${certificates.status().domains.join(", ")} yet`);
@@ -118,6 +121,8 @@ const start = async () => {
         }
     }
 
+    await domains.load();
+    if (config.ready) domains.start();
     stats.start();
     traffic.start();
     buildServers();
@@ -143,6 +148,7 @@ start().catch(err => {
 const shutdown = signal => {
     logger.info(`Received ${signal}, shutting down`);
     control.close();
+    domains.stop();
     certificates.stop();
     stats.stop();
     traffic.stop();

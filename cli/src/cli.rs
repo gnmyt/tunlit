@@ -70,9 +70,13 @@ async fn printed<E: Send + 'static>(
 }
 
 fn print_ready(online: &Online, target_label: &str, server_url: &str, access: &Access) {
-    println!("{} Tunnel {} is online", ok(), style(&online.id).cyan().bold());
+    let kind = if online.persistent { style(" (persistent)").dim().to_string() } else { String::new() };
+    println!("{} Tunnel {} is online{kind}", ok(), style(&online.id).cyan().bold());
     if let Some(url) = &online.url {
         println!("  {}  {}  {}", style(url).cyan().bold().underlined(), style("→").dim(), style(target_label).bold());
+        for custom in &online.custom_urls {
+            println!("  {}", style(custom).cyan().underlined());
+        }
         println!();
         qr::print(url);
         if qr::copy(url) { println!("{} Copied to clipboard", ok()); }

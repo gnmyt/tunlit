@@ -47,6 +47,7 @@ export default defineConfig({
                     { text: "HTTPS", link: "/https" },
                     { text: "Reverse Proxy", link: "/reverse-proxy" },
                     { text: "CLI", link: "/cli" },
+                    { text: "Persistent tunnels", link: "/persistent" },
                 ],
             },
         ],

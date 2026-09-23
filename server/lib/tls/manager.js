@@ -19,6 +19,8 @@ class CertificateManager {
         this.busy = false;
         this.challenges = new Map();
         this.timer = null;
+        this.extra = new Map();
+        this.issuing = new Set();
     }
 
     get domain() {
@@ -40,6 +42,70 @@ class CertificateManager {
         this.context = tls.createSecureContext({ key: row.privateKey, cert: row.chain });
         this.state = new Date(row.expiresAt).getTime() < Date.now() ? "expired" : "ready";
         return this.current;
+    }
+
+    async loadExtra() {
+        this.extra.clear();
+        for (const row of await store.certificates()) {
+            if (row.domain === this.domain) continue;
+            this.extra.set(row.domain, {
+                context: tls.createSecureContext({ key: row.privateKey, cert: row.chain }),
+                expiresAt: new Date(row.expiresAt),
+            });
+        }
+    }
+
+    secureContextFor(servername) {
+        const name = String(servername || "").toLowerCase();
+        return this.extra.get(name)?.context || this.context;
+    }
+
+    info(hostname) {
+        const entry = this.extra.get(hostname);
+        return entry ? { expiresAt: entry.expiresAt } : null;
+    }
+
+    dueFor(hostname) {
+        const entry = this.extra.get(hostname);
+        return !entry || entry.expiresAt.getTime() - Date.now() < RENEW_BEFORE;
+    }
+
+    async issueFor(hostname) {
+        if (this.issuing.has(hostname)) throw new Error(`A certificate request for ${hostname} is already running`);
+        if (!this.config.managesTls) throw new Error("tunlit does not manage certificates on this server");
+        this.issuing.add(hostname);
+        try {
+            const { settings, client } = await this.client();
+            const [key, csr] = await acme.crypto.createCsr({ commonName: hostname, altNames: [hostname] });
+            const handlers = this.challengeHandlers(settings);
+            const chain = await client.auto({
+                csr,
+                email: settings.email || undefined,
+                termsOfServiceAgreed: true,
+                skipChallengeVerification: true,
+                challengePriority: ["http-01"],
+                challengeCreateFn: handlers.create,
+                challengeRemoveFn: handlers.remove,
+            });
+            const info = acme.crypto.readCertificateInfo(chain);
+            await store.saveCertificate({
+                domain: hostname, altNames: [hostname],
+                privateKey: key.toString(), chain: chain.toString(),
+                expiresAt: info.notAfter,
+            });
+            this.extra.set(hostname, {
+                context: tls.createSecureContext({ key: key.toString(), cert: chain.toString() }),
+                expiresAt: info.notAfter,
+            });
+            logger.info(`Certificate issued for ${hostname}, valid until ${info.notAfter.toISOString()}`);
+        } finally {
+            this.issuing.delete(hostname);
+        }
+    }
+
+    async forget(hostname) {
+        this.extra.delete(hostname);
+        await store.forgetCertificate(hostname);
     }
 
     covers() {
@@ -189,11 +255,17 @@ class CertificateManager {
     }
 
     async maybeRenew() {
-        if (this.busy || !this.config.managesTls || !this.config.ready) return;
-        if (!this.dueForRenewal()) return;
-        logger.info("Certificate is due for renewal");
-        const result = await this.request();
-        if (result.code) logger.warn(`Renewal could not start: ${result.message}`);
+        if (!this.config.managesTls || !this.config.ready) return;
+        if (!this.busy && this.dueForRenewal()) {
+            logger.info("Certificate is due for renewal");
+            const result = await this.request();
+            if (result.code) logger.warn(`Renewal could not start: ${result.message}`);
+        }
+        for (const hostname of this.extra.keys()) {
+            if (!this.dueFor(hostname)) continue;
+            logger.info(`Certificate for ${hostname} is due for renewal`);
+            await this.issueFor(hostname).catch(err => logger.warn(`Renewal for ${hostname} failed: ${err.message}`));
+        }
     }
 }
 

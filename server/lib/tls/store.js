@@ -16,6 +16,8 @@ const saveSettings = async values => {
 
 const certificate = domain => Certificate.findOne({ where: { domain } });
 
+const certificates = () => Certificate.findAll();
+
 const saveCertificate = async ({ domain, altNames, privateKey, chain, expiresAt }) => {
     const values = {
         domain, altNames: JSON.stringify(altNames), privateKey, chain,
@@ -28,4 +30,4 @@ const saveCertificate = async ({ domain, altNames, privateKey, chain, expiresAt 
 
 const forgetCertificate = domain => Certificate.destroy({ where: { domain } });
 
-module.exports = { settings, saveSettings, certificate, saveCertificate, forgetCertificate };
+module.exports = { settings, saveSettings, certificate, certificates, saveCertificate, forgetCertificate };

@@ -161,6 +161,8 @@ async fn register(url: &str, token: &str, accept_invalid_certs: bool, opts: &Opt
             url: get("url"),
             share_code: get("shareCode"),
             connect_url: get("connectUrl"),
+            custom_urls: msg.get("customUrls").and_then(|v| v.as_array()).map(|list| list.iter().filter_map(|v| v.as_str().map(String::from)).collect()).unwrap_or_default(),
+            persistent: msg.get("persistent").and_then(|v| v.as_bool()).unwrap_or(false),
         },
         resume_token: get("resumeToken").context("registered without resume token")?,
     };
@@ -235,7 +237,7 @@ pub async fn prepare(opts: &Options) -> Result<(Target, String)> {
 }
 
 fn is_fatal(text: &str) -> bool {
-    text.contains("(unauthorized)") || text.contains("(invalid_name)") || text.contains("(name_taken)")
+    text.contains("(unauthorized)") || text.contains("(invalid_name)") || text.contains("(name_taken)") || text.contains("(name_reserved)")
 }
 
 pub async fn run(opts: Options, target: Target, out: Events<TunnelEvent>, mut stop: Stop) -> Result<()> {

@@ -28,6 +28,7 @@ const useLatestRelease = () => {
             const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
             if (cached && Date.now() - cached.at < CACHE_TTL) return setLatest(cached.version);
         } catch {
+            setLatest(null);
         }
 
         fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" } })
@@ -38,6 +39,7 @@ const useLatestRelease = () => {
                 try {
                     localStorage.setItem(CACHE_KEY, JSON.stringify({ version: release.tag_name, at: Date.now() }));
                 } catch {
+                    return;
                 }
             })
             .catch(() => null);

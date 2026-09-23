@@ -19,7 +19,7 @@ const wantsHtml = req => /\btext\/html\b/.test(req.headers.accept || "");
 
 const ACME_PREFIX = "/.well-known/acme-challenge/";
 
-const createRouter = ({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, control }) => {
+const createRouter = ({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, control }) => {
     const onRequest = tunnel => entry => {
         traffic.record(tunnel.id, entry);
         stats.recordRequest(tunnel.id);
@@ -32,6 +32,7 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
     api.use(`${API_PREFIX}/setup`, require("../routes/setup"));
     api.use(`${API_PREFIX}/auth`, require("../routes/auth"));
     api.use(`${API_PREFIX}/tunnels`, authenticate, require("../routes/tunnels"));
+    api.use(`${API_PREFIX}/persistent`, authenticate, require("../routes/persistent"));
     api.use(`${API_PREFIX}/settings`, authenticate, require("../routes/settings"));
     api.use(`${API_PREFIX}/devices`, authenticate, require("../routes/devices"));
     api.use(`${API_PREFIX}/accounts`, authenticate, requireAdmin, require("../routes/accounts"));
@@ -85,7 +86,7 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
 
     const handleUi = async (req, res, info, pathname) => {
         if (pathname === API_PREFIX || pathname.startsWith(`${API_PREFIX}/`)) {
-            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, info });
+            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, info });
             if (!handled) sendJson(res, 404, { error: "not_found" });
             return;
         }
@@ -111,6 +112,15 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
             { pathMode: true, inject: injectedScript(id), onRequest: onRequest(tunnel), setCookie: gate?.cookie });
     };
 
+    const hostFor = hostname => {
+        const host = classifyHost(hostname, config.baseDomain);
+        if (host.kind !== "unknown") return host;
+        const name = domains.tunnelFor(hostname);
+        return name ? { kind: "custom", id: name } : host;
+    };
+
+    const hostTunnel = host => tunnelFor(host.id, host.kind === "custom" ? ["subdomain", "path"] : ["subdomain"]);
+
     const acmeChallenge = (req, res, pathname) => {
         const response = certificates?.challengeResponse(pathname.slice(ACME_PREFIX.length));
         if (!response) return false;
@@ -123,9 +133,9 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
         const url = new URL(req.url, "http://tunlit.invalid");
         if (url.pathname.startsWith(ACME_PREFIX) && acmeChallenge(req, res, url.pathname)) return;
 
-        if (!certificates?.covers()) return handleRequest(req, res);
+        const host = String(req.headers.host || config.baseDomain).replace(/:\d+$/, "").toLowerCase();
+        if (!certificates?.covers() && !certificates?.secureContextFor(host)) return handleRequest(req, res);
 
-        const host = String(req.headers.host || config.baseDomain).replace(/:\d+$/, "");
         const port = config.httpsPort === 443 ? "" : `:${config.httpsPort}`;
         res.writeHead(308, { Location: `https://${host}${port}${req.url}`, "Cache-Control": "no-store" });
         res.end();
@@ -144,9 +154,9 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
             return noTunnel(req, res, `${UI_PREFIX}/`);
         }
 
-        const host = classifyHost(info.hostname, config.baseDomain);
+        const host = hostFor(info.hostname);
 
-        if (isUi) {
+        if (isUi && host.kind !== "custom") {
             if (pathname === SW_PATH) {
                 if (!["GET", "HEAD"].includes(req.method)) return sendJson(res, 405, { error: "method_not_allowed" });
                 res.writeHead(200, {
@@ -160,10 +170,10 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
             return handleUi(req, res, info, pathname);
         }
 
-        if (host.kind === "subdomain") {
-            const { tunnel, error } = tunnelFor(host.id, ["subdomain"]);
-            if (error === "not-found") return notFound(req, res, host.id);
-            if (error === "offline") return offline(req, res, host.id);
+        if (host.kind === "subdomain" || host.kind === "custom") {
+            const { tunnel, error } = hostTunnel(host);
+            if (error === "not-found" && host.kind !== "custom") return notFound(req, res, host.id);
+            if (error) return offline(req, res, host.id);
             const gate = await denial(req, res, info, tunnel);
             if (gate?.deny) return gate.deny();
             return proxyRequest(req, res, tunnel, info,
@@ -194,12 +204,12 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
         };
 
         if (!config.ready || config.setupRequired) return reject(503, "Setup required");
-        const host = classifyHost(info.hostname, config.baseDomain);
+        const host = hostFor(info.hostname);
 
         if (host.kind === "base" && pathname === "/@tunlit/ws") return control.handleUpgrade(req, socket, head);
 
         let target;
-        if (host.kind === "subdomain") target = tunnelFor(host.id, ["subdomain"]);
+        if (host.kind === "subdomain" || host.kind === "custom") target = hostTunnel(host);
         else if (host.kind === "base") {
             if (pathname.startsWith("/@")) return reject(404, "Not Found");
             const selected = new URL(req.url, "http://tunlit.invalid").searchParams.get(QUERY_PARAM);
@@ -207,8 +217,8 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
             target = tunnelFor(String(selected).toLowerCase(), ["path"]);
         } else return reject(404, "Not Found");
 
-        if (target.error === "not-found") return reject(404, "Tunnel not found");
-        if (target.error === "offline") return reject(502, "Tunnel offline");
+        if (target.error === "not-found" && host.kind !== "custom") return reject(404, "Tunnel not found");
+        if (target.error) return reject(502, "Tunnel offline");
         if (isRestricted(target.tunnel.policy)) {
             if (!isAllowed(info.clientIp, target.tunnel.policy.allowedIps)) return reject(403, "Forbidden");
             if (target.tunnel.policy.auth !== "none" && !access.allows(accessToken(req), target.tunnel.id)) {

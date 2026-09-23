@@ -2,7 +2,7 @@ const { EventEmitter } = require("node:events");
 const crypto = require("node:crypto");
 const ids = require("../utils/ids");
 const { emptyPolicy, buildPolicy, isAllowed } = require("./access");
-const tunnelStore = require("./tunnelStore");
+const persistent = require("./persistent");
 const { safeEqual } = require("../utils/auth");
 const logger = require("../utils/logger");
 
@@ -29,6 +29,7 @@ class Tunnel {
         this.graceUntil = null;
         this.createdAt = Date.now();
         this.policy = emptyPolicy();
+        this.persistent = false;
     }
 
     get online() {
@@ -53,9 +54,10 @@ const parseTarget = raw => {
 };
 
 class Registry extends EventEmitter {
-    constructor(config) {
+    constructor(config, domains) {
         super();
         this.config = config;
+        this.domains = domains;
         this.tunnels = new Map();
     }
 
@@ -63,17 +65,21 @@ class Registry extends EventEmitter {
         return this.tunnels.get(id) || null;
     }
 
-    _allocateId(requested) {
+    async _allocateId(requested, account) {
         if (requested !== undefined && requested !== null && requested !== "") {
             const name = String(requested).toLowerCase();
             if (ids.isReserved(name)) throw Object.assign(new Error(`The name "${name}" is taken by the server itself`), { code: "invalid_name" });
             if (!ids.isValidName(name)) throw Object.assign(new Error(`Invalid name "${name}": use 3-32 characters a-z, 0-9 or "-"`), { code: "invalid_name" });
             if (this.tunnels.has(name)) throw Object.assign(new Error(`The name "${name}" is already in use`), { code: "name_taken" });
-            return name;
+            const definition = await persistent.load(name);
+            if (definition && definition.accountId !== account.id) {
+                throw Object.assign(new Error(`The name "${name}" is reserved by another account`), { code: "name_reserved" });
+            }
+            return { id: name, definition };
         }
         for (let i = 0; i < 50; i++) {
             const id = ids.randomId(6);
-            if (!this.tunnels.has(id) && !ids.isReserved(id)) return id;
+            if (!this.tunnels.has(id) && !ids.isReserved(id) && !await persistent.load(id)) return { id, definition: null };
         }
         throw Object.assign(new Error("Could not allocate a tunnel id"), { code: "bad_request" });
     }
@@ -92,7 +98,7 @@ class Registry extends EventEmitter {
             if (existing && existing.mode === mode && existing.accountId === account.id) {
                 if (policy) {
                     existing.policy = buildPolicy(policy);
-                    await tunnelStore.save(existing.id, existing.accountId, existing.policy);
+                    if (existing.persistent) await persistent.savePolicy(existing.id, existing.policy);
                 }
                 this._attach(existing, session, parsedTarget, keepHost);
                 logger.info(`Tunnel ${existing.id} resumed`, { mode });
@@ -100,15 +106,17 @@ class Registry extends EventEmitter {
             }
         }
 
-        const id = this._allocateId(name);
+        const { id, definition } = await this._allocateId(name, account);
         const tunnel = new Tunnel({ id, mode, target: parsedTarget, keepHost, accountId: account.id, owner: account.username });
 
-        const saved = await tunnelStore.load(id);
-        if (saved && saved.accountId === account.id) tunnel.policy = saved.policy;
-        else if (saved) await tunnelStore.forget(id);
-
-        if (policy) tunnel.policy = buildPolicy(policy);
-        if (policy || (saved && saved.accountId === account.id)) await tunnelStore.save(id, account.id, tunnel.policy);
+        if (definition) {
+            tunnel.persistent = true;
+            tunnel.policy = definition.policy;
+        }
+        if (policy) {
+            tunnel.policy = buildPolicy(policy);
+            if (definition) await persistent.savePolicy(id, tunnel.policy);
+        }
 
         this.tunnels.set(id, tunnel);
         this._attach(tunnel, session, parsedTarget, keepHost);
@@ -187,13 +195,21 @@ class Registry extends EventEmitter {
     }
 
     publicUrl(tunnel) {
+        return tunnel.mode === "tcp" ? null : this.urlFor(tunnel.id, tunnel.mode);
+    }
+
+    urlFor(name, mode = this.config.httpMode) {
         const { publicScheme, baseDomain, publicUrl } = this.config;
-        if (tunnel.mode === "subdomain") {
+        if (mode === "subdomain") {
             const port = new URL(publicUrl).port;
-            return `${publicScheme}://${tunnel.id}.${baseDomain}${port ? `:${port}` : ""}`;
+            return `${publicScheme}://${name}.${baseDomain}${port ? `:${port}` : ""}`;
         }
-        if (tunnel.mode === "path") return `${publicUrl}/@${tunnel.id}`;
-        return null;
+        return `${publicUrl}/@${name}`;
+    }
+
+    customUrls(tunnel) {
+        if (tunnel.mode === "tcp") return [];
+        return this.domains.hostsFor(tunnel.id).map(hostname => `${this.config.publicScheme}://${hostname}`);
     }
 }
 

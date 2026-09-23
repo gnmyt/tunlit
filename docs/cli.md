@@ -104,7 +104,7 @@ Options:
 
 | Flag | Description |
 |---|---|
-| `--name <name>` | Request a custom id (`a-z`, `0-9`, `-`, 3-32 characters). Fails if it is taken. |
+| `--name <name>` | Request a custom id (`a-z`, `0-9`, `-`, 3-32 characters). Fails if it is taken or [reserved](/persistent) by someone else. |
 | `--keep-host` | Send the public hostname as `Host` to your app instead of `192.168.1.5:8080`. By default the local authority is sent so dev servers like Vite or Django don't reject the request; the public host is always available in `X-Forwarded-Host`. |
 
 ### Direct TCP + UDP

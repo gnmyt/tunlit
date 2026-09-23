@@ -13,7 +13,7 @@ const AUTH_OPTIONS = [
     { label: "tunlit account", value: "tunlit" },
 ];
 
-export const AccessSection = ({ tunnel, onSaved }) => {
+export const AccessSection = ({ tunnel, onSaved, endpoint = `tunnels/${tunnel.id}/access` }) => {
     const { sendToast } = useToast();
     const rules = tunnel.access?.allowedIps || [];
     const [draft, setDraft] = useState("");
@@ -30,7 +30,7 @@ export const AccessSection = ({ tunnel, onSaved }) => {
     const save = async (body, message) => {
         setBusy(true);
         try {
-            await putRequest(`tunnels/${tunnel.id}/access`, body);
+            await putRequest(endpoint, body);
             sendToast("Success", message);
             onSaved?.();
             return true;
