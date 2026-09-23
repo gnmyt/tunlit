@@ -1,5 +1,6 @@
 const { Router } = require("../utils/router");
 const { listTunnels, closeTunnel, getTunnel, disconnectClient, disconnectAllClients, updateAccess, replay, mayTouch } = require("../controllers/tunnels");
+const { toHar } = require("../lib/har");
 
 const app = Router();
 
@@ -11,6 +12,12 @@ app.get("/:id", async (req, res) => {
     const tunnel = await getTunnel(req.registry, req.traffic, req.params.id.toLowerCase(), req.session);
     if (!tunnel) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
     res.json({ tunnel, gracePeriod: req.config.gracePeriod, now: Date.now() });
+});
+
+app.get("/:id/requests.har", async (req, res) => {
+    const id = req.params.id.toLowerCase();
+    if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
+    res.header("Content-Disposition", `attachment; filename="${id}.har"`).json(toHar(await req.traffic.all(id), req.config.publicScheme));
 });
 
 app.get("/:id/requests", async (req, res) => {

@@ -114,6 +114,12 @@ class TrafficLog {
         return rows.map(summarise);
     }
 
+    async all(tunnelId) {
+        await this.flush();
+        const rows = await Request.findAll({ where: { tunnel: tunnelId }, order: [["id", "ASC"]] });
+        return rows.map(detail);
+    }
+
     async get(tunnelId, id) {
         await this.flush();
         const row = await Request.findOne({ where: { tunnel: tunnelId, id } });

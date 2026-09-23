@@ -146,8 +146,8 @@ GET  404 /favicon.ico 1ms
 WS   101 /socket      4210ms
 ```
 
-The same requests are kept server-side and shown in the web UI, with their headers and bodies, and can be replayed
-from there.
+The same requests are kept server-side and shown in the web UI, with their headers and bodies. From there they can be
+replayed, or exported as a HAR file for browser devtools.
 
 Options:
 

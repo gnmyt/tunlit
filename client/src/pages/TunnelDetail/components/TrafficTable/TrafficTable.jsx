@@ -2,7 +2,7 @@ import "./styles.sass";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Button from "@/common/components/Button";
 import { getRequest } from "@/common/utils/RequestUtil.js";
-import { Activity, Pause, Play } from "lucide-react";
+import { Activity, Download, Pause, Play } from "lucide-react";
 import RequestDialog from "./components/RequestDialog";
 
 const POLL_INTERVAL = 1500;
@@ -73,6 +73,11 @@ export const TrafficTable = ({ id }) => {
                 <h2>Traffic</h2>
                 <span className="traffic-count">{total} {total === 1 ? "request" : "requests"}</span>
                 <div className="traffic-spacer" />
+                {total > 0 && (
+                    <a className="btn btn-ghost" href={`/@tunlit/api/tunnels/${id}/requests.har`} download={`${id}.har`}>
+                        <Download /><span>Export HAR</span>
+                    </a>
+                )}
                 <Button type="ghost" icon={paused ? Play : Pause} text={paused ? "Resume" : "Pause"}
                         buttonType="button" onClick={() => setPaused(!paused)} />
             </div>
