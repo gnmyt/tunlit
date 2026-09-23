@@ -23,7 +23,7 @@ const header = (list, name) => list.find(([key]) => key.toLowerCase() === name)?
 const curlFor = (url, detail) => {
     const parts = [`curl -X ${detail.method} '${url}'`];
     for (const [name, value] of detail.request.headers) {
-        if (value !== "[hidden]" && !["host", "content-length"].includes(name.toLowerCase())) parts.push(`-H '${name}: ${value}'`);
+        if (!["host", "content-length"].includes(name.toLowerCase())) parts.push(`-H '${name}: ${value}'`);
     }
     const body = detail.request.body && decode(detail.request.body);
     if (body) parts.push(`--data-raw '${body.replace(/'/g, "'\\''")}'`);

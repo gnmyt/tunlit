@@ -3,10 +3,10 @@ import Button from "@/common/components/Button";
 import { formatRelative } from "@/common/utils/formatUtils.js";
 import { Unplug, Users } from "lucide-react";
 
-export const ClientList = ({ clients = [], port, onDisconnect, onDisconnectAll }) => (
+export const ClientList = ({ clients = [], port, heading, onDisconnect, onDisconnectAll }) => (
     <section className="clients">
         <div className="clients-head">
-            <h2>Clients</h2>
+            {heading}
             <span className="clients-count">{clients.length} connected</span>
             <div className="clients-spacer" />
             {clients.length > 0 && <Button type="ghost" text="Disconnect all" buttonType="button"

@@ -1,0 +1,193 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.visitors
+  margin-top: 1.75rem
+
+.visitors-head
+  display: flex
+  align-items: center
+  gap: 0.625rem
+  margin-bottom: 0.75rem
+
+.visitors-count
+  color: colors.$muted
+  font-size: 0.8125rem
+
+.visitors-spacer
+  flex: 1
+
+.visitors-empty
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 0.5rem
+  padding: 2.5rem 1rem
+  text-align: center
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 0.875rem
+
+  svg
+    color: colors.$muted
+    opacity: 0.7
+
+  p
+    color: colors.$muted
+    font-size: 0.875rem
+
+.visitors-table
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 0.875rem
+  overflow: hidden
+
+  table
+    width: 100%
+    border-collapse: collapse
+    font-size: 0.8125rem
+
+  th
+    text-align: left
+    padding: 0.625rem 0.875rem
+    color: colors.$muted
+    font-size: 0.6875rem
+    font-weight: 600
+    text-transform: uppercase
+    letter-spacing: 0.06em
+    border-bottom: 1px solid colors.$border
+    white-space: nowrap
+    user-select: none
+
+    svg
+      width: 0.75rem
+      height: 0.75rem
+      margin-left: 0.25rem
+      vertical-align: -0.125rem
+
+    &.sortable
+      cursor: pointer
+
+      &:hover
+        color: colors.$text
+
+  td
+    padding: 0.5rem 0.875rem
+    border-bottom: 1px solid colors.$border
+    white-space: nowrap
+    vertical-align: middle
+
+  tbody tr:hover
+    background-color: colors.$surface-hover
+
+  tbody tr.blocked .visitor
+    color: colors.$error
+
+  .mono
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
+    font-variant-numeric: tabular-nums
+
+  .dim
+    color: colors.$muted
+
+  .visitor .flag
+    margin-right: 0.5rem
+
+  .network
+    display: flex
+    align-items: center
+    gap: 0.375rem
+    max-width: 22rem
+
+    > span:first-child
+      min-width: 0
+      overflow: hidden
+      text-overflow: ellipsis
+      white-space: nowrap
+      color: colors.$subtext
+
+  .visitor-blocked
+    color: colors.$error
+    font-weight: 600
+
+  .actions
+    text-align: right
+    width: 1%
+
+    button
+      display: inline-flex
+      align-items: center
+      justify-content: center
+      width: 1.75rem
+      height: 1.75rem
+      padding: 0
+      background: none
+      border: none
+      border-radius: 0.5rem
+      color: colors.$muted
+      cursor: pointer
+
+      svg
+        width: 0.875rem
+        height: 0.875rem
+
+      &:hover:not(:disabled)
+        background-color: colors.$surface-hover
+        color: colors.$text
+
+      &.block:hover:not(:disabled)
+        background-color: colors.$error-tint
+        color: colors.$error
+
+      &.unblock
+        color: colors.$error
+
+      &.unblock:hover:not(:disabled)
+        background-color: colors.$success-tint
+        color: colors.$success
+
+      &:disabled
+        opacity: 0.4
+        cursor: default
+
+  @media (max-width: breakpoints.$mobile)
+    th:nth-child(3), td:nth-child(3), th:nth-child(6), td:nth-child(6)
+      display: none
+
+.visitors-pages
+  display: flex
+  align-items: center
+  justify-content: flex-end
+  gap: 0.25rem
+  padding: 0.375rem 0.625rem
+  border-top: 1px solid colors.$border
+  color: colors.$muted
+  font-size: 0.75rem
+  font-variant-numeric: tabular-nums
+
+  span
+    margin-right: 0.5rem
+
+  button
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    width: 1.75rem
+    height: 1.75rem
+    background: none
+    border: 1px solid colors.$border
+    border-radius: 0.5rem
+    color: colors.$subtext
+    cursor: pointer
+
+    svg
+      width: 0.875rem
+      height: 0.875rem
+
+    &:hover:not(:disabled)
+      background-color: colors.$surface-hover
+      color: colors.$text
+
+    &:disabled
+      opacity: 0.35
+      cursor: default

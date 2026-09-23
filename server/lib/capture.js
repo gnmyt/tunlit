@@ -1,7 +1,6 @@
 const { Transform } = require("node:stream");
 
 const MAX_BODY = 64 * 1024;
-const SKIP_HEADERS = new Set(["cookie", "set-cookie", "authorization", "proxy-authorization"]);
 
 class Tap extends Transform {
     constructor(limit = MAX_BODY) {
@@ -32,16 +31,6 @@ class Tap extends Transform {
     }
 }
 
-const headerList = headers => {
-    const out = [];
-    for (const [name, value] of Object.entries(headers || {})) {
-        if (SKIP_HEADERS.has(name.toLowerCase())) {
-            out.push([name, "[hidden]"]);
-            continue;
-        }
-        for (const one of [].concat(value)) out.push([name, String(one)]);
-    }
-    return out;
-};
+const headerList = headers => Object.entries(headers).flatMap(([name, value]) => [].concat(value).map(one => [name, String(one)]));
 
 module.exports = { Tap, headerList, MAX_BODY };

@@ -142,13 +142,12 @@ const isRestricted = (policy = emptyPolicy()) => policy.auth !== "none" || hasRu
 const evaluate = (policy, ip, intel) => {
     if (!hasRules(policy)) return null;
     const { allow, block } = policy;
-    const details = intel || {};
     if (block.ips.length && isAllowed(ip, block.ips)) return "address";
-    if (block.countries.includes(details.country)) return "country";
-    const category = block.categories.find(entry => details[CATEGORY_KEYS[entry]]);
+    if (block.countries.includes(intel.country)) return "country";
+    const category = block.categories.find(entry => intel[CATEGORY_KEYS[entry]]);
     if (category) return category;
     if (allow.ips.length && !isAllowed(ip, allow.ips)) return "address";
-    if (allow.countries.length && !allow.countries.includes(details.country)) return "country";
+    if (allow.countries.length && !allow.countries.includes(intel.country)) return "country";
     return null;
 };
 

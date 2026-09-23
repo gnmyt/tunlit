@@ -194,9 +194,13 @@ class Registry extends EventEmitter {
         if (!tunnel || tunnel.mode !== "tcp" || !tunnel.secretHash) throw Object.assign(new Error("Invalid share code"), { code: "invalid_code" });
         if (!crypto.timingSafeEqual(tunnel.secretHash, ids.hashSecret(parts.secret))) throw Object.assign(new Error("Invalid share code"), { code: "invalid_code" });
         const ip = session.client?.ip;
-        if (evaluate(tunnel.policy, ip, this.intel.lookup(ip))) {
+        const details = this.intel.lookup(ip);
+        const reason = evaluate(tunnel.policy, ip, details);
+        if (reason) {
+            this.emit("blocked", tunnel, ip, details, reason);
             throw Object.assign(new Error("Your address is not allowed to use this tunnel"), { code: "forbidden" });
         }
+        this.emit("joined", tunnel, ip, details);
         tunnel.joiners.add(session);
         session.tunnel = tunnel;
         session.once("close", () => tunnel.joiners.delete(session));

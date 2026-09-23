@@ -10,6 +10,7 @@ import { deleteRequest, getRequest, postRequest } from "@/common/utils/RequestUt
 import { useToast } from "@/common/contexts/toast.js";
 import { formatCountdown, formatRelative } from "@/common/utils/formatUtils.js";
 import TrafficTable from "./components/TrafficTable";
+import VisitorsTable from "./components/VisitorsTable";
 import ClientList from "./components/ClientList";
 import AccessSection from "./components/AccessSection";
 import DomainsSection from "./components/DomainsSection";
@@ -35,6 +36,8 @@ export const TunnelDetail = () => {
     const [closing, setClosing] = useState(false);
     const [releasing, setReleasing] = useState(false);
     const [disconnecting, setDisconnecting] = useState(null);
+    const [view, setView] = useState("traffic");
+    const [focus, setFocus] = useState("");
 
     const load = useCallback(async () => {
         try {
@@ -133,6 +136,14 @@ export const TunnelDetail = () => {
         persistent: true,
     };
     const isHttp = tunnel.mode !== "tcp";
+    const heading = (
+        <div className="detail-views" role="tablist">
+            <button type="button" role="tab" aria-selected={view === "traffic"} className={view === "traffic" ? "active" : ""}
+                    onClick={() => setView("traffic")}>{isHttp ? "Traffic" : "Clients"}</button>
+            <button type="button" role="tab" aria-selected={view === "visitors"} className={view === "visitors" ? "active" : ""}
+                    onClick={() => setView("visitors")}>Visitors</button>
+        </div>
+    );
     const domains = definition?.domains || [];
     const [state, stateLabel] = stateOf(live, now);
 
@@ -188,11 +199,14 @@ export const TunnelDetail = () => {
 
             {live && <StatsPanel id={tunnel.id} />}
 
-            {live && (isHttp
-                ? <TrafficTable id={tunnel.id} />
-                : <ClientList clients={tunnel.clients} port={tunnel.target.split(":").pop()}
-                               onDisconnect={client => setDisconnecting(client)}
-                               onDisconnectAll={() => setDisconnecting("all")} />)}
+            {live && (view === "visitors"
+                ? <VisitorsTable tunnel={tunnel} heading={heading} onSaved={load}
+                                 onInspect={isHttp ? ip => { setFocus(ip); setView("traffic"); } : null} />
+                : isHttp
+                    ? <TrafficTable id={tunnel.id} heading={heading} focus={focus} />
+                    : <ClientList clients={tunnel.clients} port={tunnel.target.split(":").pop()} heading={heading}
+                                  onDisconnect={client => setDisconnecting(client)}
+                                  onDisconnectAll={() => setDisconnecting("all")} />)}
         </div>
     );
 };

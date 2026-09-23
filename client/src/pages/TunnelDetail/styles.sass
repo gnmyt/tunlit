@@ -118,3 +118,30 @@
 
 .detail-open
   margin-top: 0.75rem
+
+.detail-views
+  display: flex
+  gap: 0.125rem
+  padding: 0.125rem
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 0.625rem
+
+  button
+    height: 1.75rem
+    padding: 0 0.75rem
+    background: none
+    border: none
+    border-radius: 0.45rem
+    color: colors.$muted
+    font-family: inherit
+    font-size: 0.8125rem
+    font-weight: 600
+    cursor: pointer
+
+    &:hover
+      color: colors.$text
+
+    &.active
+      background-color: colors.$surface-hover
+      color: colors.$text

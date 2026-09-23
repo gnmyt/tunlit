@@ -156,10 +156,10 @@ class Intel {
 
     lookup(address) {
         const ip = normalize(address);
-        if (!ip || !/^[0-9a-f.:]+$/i.test(ip)) return null;
         if (isPrivate(ip)) return { ip, private: true };
-        const country = this.readers.country?.get(ip);
-        const asn = this.readers.asn?.get(ip);
+        const valid = /^[0-9a-f.:]+$/i.test(ip);
+        const country = valid ? this.readers.country?.get(ip) : null;
+        const asn = valid ? this.readers.asn?.get(ip) : null;
         return {
             ip,
             private: false,

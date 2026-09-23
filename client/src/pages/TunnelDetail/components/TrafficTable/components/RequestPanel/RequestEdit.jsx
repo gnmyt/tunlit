@@ -13,7 +13,7 @@ export const RequestEdit = ({ entry, detail, onSend, onCancel, busy }) => {
     const stored = detail.request.body ? decode(detail.request.body) : "";
     const [method, setMethod] = useState(entry.method);
     const [path, setPath] = useState(entry.path);
-    const [headers, setHeaders] = useState(detail.request.headers.filter(([, value]) => value !== "[hidden]").map(pair => pair.join(": ")).join("\n"));
+    const [headers, setHeaders] = useState(detail.request.headers.map(pair => pair.join(": ")).join("\n"));
     const [body, setBody] = useState(stored ?? "");
     const binary = stored === null;
 

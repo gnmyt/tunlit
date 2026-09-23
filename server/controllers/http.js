@@ -1,4 +1,4 @@
-const { requestInfo, classifyHost, proxyRequest, proxyUpgrade, QUERY_PARAM } = require("../lib/proxy");
+const { requestInfo, classifyHost, proxyRequest, proxyUpgrade, QUERY_PARAM, REPLAY_IP } = require("../lib/proxy");
 const { SERVICE_WORKER_SOURCE, SW_PATH, injectedScript } = require("../lib/browser");
 const { evaluate, isRestricted, tokenFromRequest: accessToken, basicCredentials, cookieFor } = require("../lib/access");
 const { verifyPassword } = require("../utils/password");
@@ -21,7 +21,7 @@ const ACME_PREFIX = "/.well-known/acme-challenge/";
 
 const FLAGS = ["tor", "vpn", "datacenter", "blocklisted"];
 
-const createRouter = ({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, control }) => {
+const createRouter = ({ config, auth, registry, traffic, visitors, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, control }) => {
     const announce = (tunnel, entry) => {
         if (!tunnel.session || tunnel.session.closed) return;
         const { request, response, ...rest } = entry;
@@ -30,6 +30,7 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
     };
     const record = (tunnel, entry) => {
         entry.intel = intel.lookup(entry.ip);
+        if (entry.ip !== REPLAY_IP) visitors.seen(tunnel.id, entry.ip, entry.intel);
         traffic.record(tunnel.id, entry);
         stats.recordRequest(tunnel.id);
     };
@@ -73,8 +74,10 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
         const policy = tunnel.policy;
         if (!isRestricted(policy)) return null;
 
-        const reason = evaluate(policy, info.clientIp, intel.lookup(info.clientIp));
+        const details = intel.lookup(info.clientIp);
+        const reason = evaluate(policy, info.clientIp, details);
         if (reason) {
+            visitors.blocked(tunnel.id, info.clientIp, details, reason);
             return { deny: () => sendAppState(req, res, 403, { kind: "blocked", id: tunnel.id, ip: info.clientIp, reason }) };
         }
         if (policy.auth === "none") return null;
@@ -110,7 +113,7 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
 
     const handleUi = async (req, res, info, pathname) => {
         if (pathname === API_PREFIX || pathname.startsWith(`${API_PREFIX}/`)) {
-            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, onRequest, info });
+            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, visitors, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, onRequest, info });
             if (!handled) sendJson(res, 404, { error: "not_found" });
             return;
         }
@@ -244,7 +247,12 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
         if (target.error === "not-found" && host.kind !== "custom") return reject(404, "Tunnel not found");
         if (target.error) return reject(502, "Tunnel offline");
         if (isRestricted(target.tunnel.policy)) {
-            if (evaluate(target.tunnel.policy, info.clientIp, intel.lookup(info.clientIp))) return reject(403, "Forbidden");
+            const details = intel.lookup(info.clientIp);
+            const reason = evaluate(target.tunnel.policy, info.clientIp, details);
+            if (reason) {
+                visitors.blocked(target.tunnel.id, info.clientIp, details, reason);
+                return reject(403, "Forbidden");
+            }
             if (target.tunnel.policy.auth !== "none" && !access.allows(accessToken(req), target.tunnel.id)) {
                 return reject(401, "Unauthorized");
             }

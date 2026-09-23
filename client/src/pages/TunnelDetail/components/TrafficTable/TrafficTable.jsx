@@ -19,7 +19,7 @@ const EMPTY = { search: "", methods: [], statuses: [], countries: [] };
 
 const toggle = (list, value) => (list.includes(value) ? list.filter(entry => entry !== value) : [...list, value]);
 
-export const TrafficTable = ({ id }) => {
+export const TrafficTable = ({ id, heading, focus }) => {
     const { sendToast } = useToast();
     const [clearing, setClearing] = useState(false);
     const [requests, setRequests] = useState([]);
@@ -39,6 +39,7 @@ export const TrafficTable = ({ id }) => {
     }, [search]);
 
     useEffect(() => setPage(0), [filter, sort]);
+    useEffect(() => { if (focus) setSearch(focus); }, [focus]);
 
     const load = useCallback(async () => {
         const query = new URLSearchParams({ offset: page * PAGE_SIZE, limit: PAGE_SIZE, sort: sort.by, order: sort.order });
@@ -87,7 +88,7 @@ export const TrafficTable = ({ id }) => {
             <ActionConfirmDialog open={clearing} setOpen={setClearing} onConfirm={clear} title="Clear all requests?"
                                  text="The stored requests and messages of this tunnel are deleted." confirmText="Clear" />
             <div className="traffic-head">
-                <h2>Traffic</h2>
+                {heading}
                 <span className="traffic-count">{total} {total === 1 ? "request" : "requests"}</span>
                 <div className="traffic-spacer" />
                 {total > 0 && <>

@@ -7,6 +7,7 @@ const { sendAppState } = require("../utils/pages");
 const { Tap, headerList } = require("./capture");
 const logger = require("../utils/logger");
 
+const REPLAY_IP = "replay";
 const HOP_BY_HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "proxy-connection", "te", "trailer", "transfer-encoding", "upgrade"]);
 const QUERY_PARAM = "tunlit-tunnel";
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1", "0.0.0.0"]);
@@ -263,7 +264,7 @@ const replayRequest = (tunnel, stored, onRequest) => new Promise(resolve => {
     const headers = {};
     for (const [name, value] of stored.request.headers) {
         const key = name.toLowerCase();
-        if (HOP_BY_HOP.has(key) || key === "host" || key === "content-length" || value === "[hidden]") continue;
+        if (HOP_BY_HOP.has(key) || key === "host" || key === "content-length") continue;
         headers[name] = headers[name] === undefined ? value : [].concat(headers[name], value);
     }
     headers.host = tunnel.keepHost ? stored.host : hostHeader(tunnel.target);
@@ -285,7 +286,7 @@ const replayRequest = (tunnel, stored, onRequest) => new Promise(resolve => {
             method: stored.method,
             path: stored.path,
             status,
-            ip: "replay",
+            ip: REPLAY_IP,
             host: stored.host,
             request: { headers: headerList(headers), body, bytes: body?.length || 0, truncated: false },
             response,
@@ -347,4 +348,4 @@ const proxyUpgrade = (req, socket, head, tunnel, info, { pathMode, ws }) => {
     stream.on("close", () => socket.destroy());
 };
 
-module.exports = { requestInfo, classifyHost, proxyRequest, proxyUpgrade, replayRequest, QUERY_PARAM };
+module.exports = { requestInfo, classifyHost, proxyRequest, proxyUpgrade, replayRequest, QUERY_PARAM, REPLAY_IP };

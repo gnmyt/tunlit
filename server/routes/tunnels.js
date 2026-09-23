@@ -37,6 +37,22 @@ app.get("/:id/requests", async (req, res) => {
     res.json({ requests, total, countries, now: Date.now() });
 });
 
+app.get("/:id/visitors", async (req, res) => {
+    const id = req.params.id.toLowerCase();
+    if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
+    const options = { sort: req.query.get("sort") || "last", order: req.query.get("order") || "desc", offset: Number(req.query.get("offset")) || 0, limit: Number(req.query.get("limit")) || undefined };
+    const visitors = await req.visitors.list(id, options);
+    const total = await req.visitors.count(id);
+    res.json({ visitors, total, now: Date.now() });
+});
+
+app.delete("/:id/visitors", async (req, res) => {
+    const id = req.params.id.toLowerCase();
+    if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
+    await req.visitors.forget(id);
+    res.json({ message: "Visitors cleared" });
+});
+
 app.delete("/:id/requests", async (req, res) => {
     const id = req.params.id.toLowerCase();
     if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
