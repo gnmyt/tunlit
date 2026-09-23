@@ -8,6 +8,7 @@ use tokio::net::TcpStream;
 use crate::api::ws_url;
 use crate::config::Config;
 use crate::mux::{expect, Mux, MuxEvents, OpenMeta};
+use crate::router::{self, Route, RouteTarget};
 use crate::serve;
 use crate::session::{Events, Online, Request, Stop, TunnelEvent};
 use crate::tcp::{pump_tcp, pump_udp_owner};
@@ -58,7 +59,7 @@ impl Target {
         if self.tls { format!("https://{}", self.authority()) } else { self.authority() }
     }
 
-    fn tls_connector(&self) -> Result<tokio_native_tls::TlsConnector> {
+    pub fn tls_connector(&self) -> Result<tokio_native_tls::TlsConnector> {
         let connector = native_tls::TlsConnector::builder()
             .danger_accept_invalid_certs(true)
             .danger_accept_invalid_hostnames(true)
@@ -74,9 +75,24 @@ impl Target {
     }
 }
 
-pub enum TargetSpec { Addr(Target), Dir(PathBuf) }
+pub enum TargetSpec { Addr(Target), Dir(PathBuf), Routes(Vec<Route>) }
 
 impl TargetSpec {
+    pub fn with_routes(target: &str, routes: &[String]) -> Result<Self> {
+        if routes.is_empty() { return Self::parse(target); }
+        let mut list = vec![Route::new("/", RouteTarget::parse(target)?)?];
+        for raw in routes { list.push(Route::parse(raw)?); }
+        Ok(Self::Routes(list))
+    }
+
+    pub fn label(&self) -> String {
+        match self {
+            Self::Addr(target) => target.label(),
+            Self::Dir(dir) => format!("{} (static files)", dir.display()),
+            Self::Routes(routes) => format!("{} +{} routes", routes[0].target.label(), routes.len() - 1),
+        }
+    }
+
     pub fn dir(raw: &str) -> Result<Self> {
         let path = Path::new(raw);
         if !path.exists() { bail!("\"{raw}\" does not exist"); }
@@ -224,16 +240,21 @@ async fn handle_stream(writer: crate::mux::MuxWriter, reader: crate::mux::MuxRea
     }
 }
 
-pub async fn prepare(opts: &Options) -> Result<(Target, String)> {
-    match &opts.target {
-        TargetSpec::Addr(target) => Ok((target.clone(), target.label())),
+pub async fn prepare(opts: Options) -> Result<(Options, Target, String)> {
+    let label = opts.target.label();
+    let target = match opts.target {
+        TargetSpec::Addr(target) => target,
         TargetSpec::Dir(dir) => {
             if opts.mode == "tcp" { bail!("`tunlit tcp` needs a port or host:port, not a directory"); }
-            let port = serve::start(dir.clone()).await?;
-            let shown = if dir == Path::new(".") { std::env::current_dir().map(|d| d.display().to_string()).unwrap_or_else(|_| ".".into()) } else { dir.display().to_string() };
-            Ok((Target { host: "127.0.0.1".into(), port, tls: false }, format!("{shown} (static files)")))
+            local(serve::start(dir).await?)
         }
-    }
+        TargetSpec::Routes(routes) => local(router::start(routes).await?),
+    };
+    Ok((Options { target: TargetSpec::Addr(target.clone()), ..opts }, target, label))
+}
+
+fn local(port: u16) -> Target {
+    Target { host: "127.0.0.1".into(), port, tls: false }
 }
 
 fn is_fatal(text: &str) -> bool {

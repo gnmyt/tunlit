@@ -9,6 +9,7 @@ mod handler;
 mod headless;
 mod mux;
 mod qr;
+mod router;
 mod serve;
 mod service;
 mod session;
@@ -33,6 +34,7 @@ enum Commands {
     Http {
         target: String,
         #[arg(short, long)] name: Option<String>,
+        #[arg(long, value_name = "PREFIX=TARGET")] route: Vec<String>,
         #[arg(long)] keep_host: bool,
         #[arg(long = "allow", value_name = "CIDR")] allow: Vec<String>,
         #[arg(long, value_name = "PASSWORD")] password: Option<String>,
@@ -118,8 +120,8 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Commands::Login => cli::login().await,
         Commands::Logout => cli::logout(),
-        Commands::Http { target, name, keep_host, allow, password, require_login } =>
-            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::parse(&target)?, name, keep_host, tunnel::Access::new(allow, password, require_login)?)).await,
+        Commands::Http { target, name, route, keep_host, allow, password, require_login } =>
+            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::with_routes(&target, &route)?, name, keep_host, tunnel::Access::new(allow, password, require_login)?)).await,
         Commands::Serve { dir, name, allow, password, require_login } =>
             cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::dir(&dir)?, name, false, tunnel::Access::new(allow, password, require_login)?)).await,
         Commands::Tcp { target, name, allow } =>

@@ -107,7 +107,7 @@ fn print_request(request: &Request) {
 pub async fn tunnel(opts: Options) -> Result<()> {
     let cfg = Config::load()?;
     let (server_url, _) = cfg.require_auth()?;
-    let (target, label) = tunnel::prepare(&opts).await?;
+    let (opts, target, label) = tunnel::prepare(opts).await?;
     let access = opts.access.clone();
     let (events, rx, stop) = session();
 

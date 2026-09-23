@@ -10,7 +10,7 @@ use crate::auth::{self, LoginEvent};
 use crate::config::Config;
 use crate::connect;
 use crate::session::{self, JoinEvent, Online, Request, Stop, StopHandle, TunnelEvent};
-use crate::tunnel::{self, Options, TargetSpec};
+use crate::tunnel::{self, Options};
 use super::{format, hide_by_closing, theme, widgets, Repaint, Wake};
 use super::widgets::ChipKind;
 
@@ -235,10 +235,7 @@ impl State {
 
     pub fn start_tunnel(&mut self, kind: TunnelKind, opts: Options) {
         let id = self.next_id();
-        let target_label = match &opts.target {
-            TargetSpec::Addr(target) => target.label(),
-            TargetSpec::Dir(dir) => format!("{} (static files)", dir.display()),
-        };
+        let target_label = opts.target.label();
         let (events, rx) = session::channel();
         let (handle, stop) = Stop::new();
         self.tunnels.push(TunnelCard {
@@ -249,7 +246,7 @@ impl State {
         let mailbox = self.mailbox.clone();
         self.runtime.spawn(async move {
             let result = async {
-                let (target, label) = tunnel::prepare(&opts).await?;
+                let (opts, target, label) = tunnel::prepare(opts).await?;
                 mailbox.send(Msg::TunnelReady(id, label));
                 tunnel::run(opts, target, events, stop).await
             }.await;

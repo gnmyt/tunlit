@@ -70,6 +70,18 @@ it got. See [Introduction](/introduction) for what each mode does to the URL.
 Press Ctrl+C to stop.
 ```
 
+### Routing by path
+
+One tunnel can send different paths to different places:
+
+```sh
+tunlit http 3000 --route /api=4000 --route /docs=./site
+```
+
+The positional target takes everything that matches no route; the longest matching prefix wins. Ports and
+`host:port` targets receive the full path, directories are mounted at their prefix (`/docs/guide.html` serves
+`./site/guide.html`).
+
 ### Protecting a tunnel
 
 A tunnel can be restricted from the moment it is created:

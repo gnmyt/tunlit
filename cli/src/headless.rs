@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use tokio::sync::mpsc::UnboundedReceiver;
 use crate::config::Config;
 use crate::session::{self, Stop, StopHandle, TunnelEvent};
+use crate::router::{Route, RouteTarget};
 use crate::tunnel::{self, Access, Options, Target, TargetSpec};
 
 pub const EXAMPLE: &str = "tunnels:\n  myapp:\n    http: 3000\n  db:\n    tcp: 5432\n    allow: [10.0.0.0/8]\n";
@@ -32,6 +33,7 @@ struct Entry {
     http: Option<Endpoint>,
     serve: Option<PathBuf>,
     tcp: Option<Endpoint>,
+    #[serde(default)] routes: BTreeMap<String, Endpoint>,
     #[serde(default)] keep_host: bool,
     #[serde(default)] allow: Vec<String>,
     password: Option<String>,
@@ -42,12 +44,26 @@ impl Entry {
     fn options(self, name: &str) -> Result<Options> {
         let access = Access::new(self.allow, self.password, self.require_login)?;
         let id = Some(name.to_string());
-        match (self.http, self.serve, self.tcp) {
-            (Some(http), None, None) => Ok(Options::http(TargetSpec::Addr(Target::parse(&http.text())?), id, self.keep_host, access)),
-            (None, Some(dir), None) => Ok(Options::http(TargetSpec::dir(&dir.to_string_lossy())?, id, false, access)),
-            (None, None, Some(tcp)) => Ok(Options::tcp(Target::parse(&tcp.text())?, id, access)),
+        let mut target = match (self.http, self.serve, self.tcp) {
+            (Some(http), None, None) => TargetSpec::Addr(Target::parse(&http.text())?),
+            (None, Some(dir), None) => TargetSpec::dir(&dir.to_string_lossy())?,
+            (None, None, Some(tcp)) => {
+                if !self.routes.is_empty() { bail!("{name}: routes only work with http or serve"); }
+                return Ok(Options::tcp(Target::parse(&tcp.text())?, id, access));
+            }
             _ => bail!("{name}: set exactly one of http, serve or tcp"),
+        };
+        if !self.routes.is_empty() {
+            let root = match target {
+                TargetSpec::Addr(addr) => RouteTarget::Addr(addr),
+                TargetSpec::Dir(dir) => RouteTarget::Dir(dir),
+                TargetSpec::Routes(_) => unreachable!(),
+            };
+            let mut list = vec![Route::new("/", root)?];
+            for (prefix, endpoint) in self.routes { list.push(Route::new(&prefix, RouteTarget::parse(&endpoint.text())?)?); }
+            target = TargetSpec::Routes(list);
         }
+        Ok(Options::http(target, id, self.keep_host, access))
     }
 }
 
@@ -120,7 +136,7 @@ pub async fn run(path: Option<PathBuf>) -> Result<()> {
         let printer = tokio::spawn(print(name.clone(), rx));
         tasks.push(tokio::spawn(async move {
             let result = async {
-                let (target, _) = tunnel::prepare(&opts).await?;
+                let (opts, target, _) = tunnel::prepare(opts).await?;
                 tunnel::run(opts, target, events, stop).await
             }.await;
             if let Err(err) = &result { log(&name, format!("{} {err:#}", style("failed:").red())); }

@@ -15,6 +15,11 @@ tunnels:
   site:
     serve: /var/www/site
     password: hunter2
+  shop:
+    http: 3000
+    routes:
+      /api: 4000
+      /docs: /var/www/docs
   db:
     tcp: 5432
     allow: [ 10.0.0.0/8 ]
@@ -25,6 +30,7 @@ tunnels:
 | `http`                       | A port, `host:port` or `https://host[:port]`.   |
 | `serve`                      | A directory to serve.                           |
 | `tcp`                        | A port or `host:port`, shared with a code.      |
+| `routes`                     | Prefix to port, `host:port` or directory, see [Routing by path](/cli#routing-by-path). |
 | `keep_host`                  | Send the public hostname as `Host` (HTTP only). |
 | `allow`                      | Allowed addresses or CIDR ranges.               |
 | `password` / `require_login` | Sign-in for visitors (HTTP only).               |
