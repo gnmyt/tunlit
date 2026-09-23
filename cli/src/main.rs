@@ -6,15 +6,18 @@ mod connect;
 #[cfg(feature = "gui")]
 mod gui;
 mod handler;
+mod headless;
 mod mux;
 mod qr;
 mod serve;
+mod service;
 mod session;
 mod tcp;
 mod tunnel;
 
 use clap::{Parser, Subcommand};
 use console::style;
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "tunlit", about = "tunlit CLI - expose local ports through your own tunlit server", version)]
@@ -53,6 +56,13 @@ enum Commands {
         #[arg(short, long, default_value = "127.0.0.1")] bind: String,
         #[arg(short, long)] server: Option<String>,
     },
+    Start {
+        #[arg(short, long, value_name = "FILE")] config: Option<PathBuf>,
+    },
+    Service {
+        #[command(subcommand)]
+        action: ServiceAction,
+    },
     #[cfg(feature = "gui")]
     Gui {
         link: Option<String>,
@@ -65,6 +75,12 @@ enum Commands {
         #[command(subcommand)]
         action: LinkAction,
     },
+}
+
+#[derive(Subcommand)]
+enum ServiceAction {
+    Install,
+    Uninstall,
 }
 
 #[derive(Subcommand)]
@@ -109,6 +125,11 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         Commands::Tcp { target, name, allow } =>
             cli::tunnel(tunnel::Options::tcp(tunnel::Target::parse(&target)?, name, tunnel::Access::new(allow, None, false)?)).await,
         Commands::Connect { target, port, bind, server } => cli::connect(target, port, bind, server).await,
+        Commands::Start { config } => headless::run(config).await,
+        Commands::Service { action } => match action {
+            ServiceAction::Install => service::install(),
+            ServiceAction::Uninstall => service::uninstall(),
+        },
         #[cfg(feature = "gui")]
         Commands::Gui { .. } => unreachable!("handled before the runtime starts"),
         Commands::Links { action } => match action {

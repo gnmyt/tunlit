@@ -48,6 +48,7 @@ export default defineConfig({
                     { text: "Reverse Proxy", link: "/reverse-proxy" },
                     { text: "CLI", link: "/cli" },
                     { text: "Persistent tunnels", link: "/persistent" },
+                    { text: "Running as a service", link: "/service" },
                 ],
             },
         ],

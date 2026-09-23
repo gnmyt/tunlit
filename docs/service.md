@@ -1,0 +1,52 @@
+# 🔁 Running as a service
+
+`tunlit start` runs every tunnel from one file and reconnects on its own. `tunlit service install` makes it start
+with your session.
+
+## The file
+
+`~/.config/tunlit/tunnels.yml` on Linux, `~/Library/Application Support/tunlit/tunnels.yml` on macOS,
+`%APPDATA%\tunlit\tunnels.yml` on Windows. Each key is the tunnel name:
+
+```yaml
+tunnels:
+  myapp:
+    http: 3000
+  site:
+    serve: /var/www/site
+    password: hunter2
+  db:
+    tcp: 5432
+    allow: [ 10.0.0.0/8 ]
+```
+
+| Key                          | Description                                     |
+|------------------------------|-------------------------------------------------|
+| `http`                       | A port, `host:port` or `https://host[:port]`.   |
+| `serve`                      | A directory to serve.                           |
+| `tcp`                        | A port or `host:port`, shared with a code.      |
+| `keep_host`                  | Send the public hostname as `Host` (HTTP only). |
+| `allow`                      | Allowed addresses or CIDR ranges.               |
+| `password` / `require_login` | Sign-in for visitors (HTTP only).               |
+
+Names should be [persistent](/persistent), otherwise they are free for anyone while the service is down.
+
+```sh
+tunlit start                      # foreground, Ctrl+C stops everything
+tunlit start --config other.yml
+```
+
+## Installing
+
+```sh
+tunlit service install
+tunlit service uninstall
+```
+
+| System  | What it installs                                                                                                         |
+|---------|--------------------------------------------------------------------------------------------------------------------------|
+| Linux   | systemd user unit, `journalctl --user -u tunlit -f` for logs. Linger is enabled so it also runs without a login session. |
+| macOS   | Launch agent, logs in `~/Library/Logs/tunlit.log`.                                                                       |
+| Windows | Scheduled task that runs at logon.                                                                                       |
+
+The device has to be linked (`tunlit login`) first; the file is created with an example if it is missing.

@@ -80,6 +80,10 @@ impl Stop {
         (StopHandle(tx), Self(rx))
     }
 
+    pub fn subscribe(handle: &StopHandle) -> Self {
+        Self(handle.0.subscribe())
+    }
+
     pub async fn wait(&mut self) {
         if *self.0.borrow() { return; }
         while self.0.changed().await.is_ok() {

@@ -6,7 +6,7 @@ use std::process::Command;
 pub const SCHEME: &str = "tunlit";
 const ICON_SVG: &[u8] = include_bytes!("../../packaging/tunlit.svg");
 
-fn exe() -> Result<String> {
+pub fn exe() -> Result<String> {
     let path = std::env::current_exe().context("Could not find the tunlit binary")?;
     Ok(path.to_string_lossy().to_string())
 }
