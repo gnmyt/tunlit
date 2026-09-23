@@ -1,6 +1,4 @@
 use anyhow::{bail, Context, Result};
-use console::style;
-use dialoguer::Input;
 use serde_json::json;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -10,8 +8,30 @@ use tokio::net::{TcpListener, UdpSocket};
 use crate::api::ws_url;
 use crate::config::{normalize_url, Config};
 use crate::mux::{expect, Incoming, Mux, MuxEvents, MuxWriter, OpenMeta};
+use crate::session::{Events, JoinEvent, Stop};
 use crate::tcp::{pump_tcp, UDP_IDLE};
-use crate::tunnel::{server_hello, spinner};
+use crate::tunnel::server_hello;
+
+pub type PortPicker = Box<dyn Fn(u16) -> Result<u16> + Send + Sync>;
+
+#[derive(Debug)]
+pub struct PortInUse { pub port: u16, pub bind: String }
+
+impl std::fmt::Display for PortInUse {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "Port {} is already in use on {}", self.port, self.bind)
+    }
+}
+
+impl std::error::Error for PortInUse {}
+
+pub struct Options {
+    pub target: String,
+    pub port: Option<u16>,
+    pub bind: String,
+    pub server: Option<String>,
+    pub pick_port: Option<PortPicker>,
+}
 
 type Current = Arc<Mutex<Option<Arc<Mux>>>>;
 
@@ -26,17 +46,16 @@ async fn join(url: &str, code: &str, accept_invalid_certs: bool) -> Result<(Arc<
     Ok((mux, events, port, online))
 }
 
-async fn bind(bind_addr: &str, port: u16, explicit: bool) -> Result<(TcpListener, UdpSocket, u16)> {
+async fn bind(bind_addr: &str, port: u16, pick_port: Option<&PortPicker>) -> Result<(TcpListener, UdpSocket, u16)> {
     let mut port = port;
     loop {
         let addr: SocketAddr = format!("{bind_addr}:{port}").parse().with_context(|| format!("Invalid bind address {bind_addr}"))?;
         match (TcpListener::bind(addr).await, UdpSocket::bind(addr).await) {
             (Ok(tcp), Ok(udp)) => return Ok((tcp, udp, port)),
-            _ => {
-                println!("{} Port {} is already in use on {}", style("!").yellow().bold(), style(port).bold(), bind_addr);
-                if explicit || !console::user_attended() { bail!("Choose another port with --port"); }
-                port = Input::new().with_prompt("Local port to use instead").default(port + 1).interact_text()?;
-            }
+            _ => match pick_port {
+                Some(pick) => port = pick(port)?,
+                None => return Err(PortInUse { port, bind: bind_addr.to_string() }.into()),
+            },
         }
     }
 }
@@ -93,25 +112,41 @@ fn parse_target(target: &str) -> Result<(String, Option<String>)> {
     Ok((target.to_string(), None))
 }
 
-pub async fn run(target: String, port: Option<u16>, bind_addr: String, server: Option<String>) -> Result<()> {
-    let (code, from_link) = parse_target(&target)?;
+pub fn resolve(target: &str, server: Option<&str>) -> Result<(String, String, String)> {
+    let (code, from_link) = parse_target(target)?;
     if code.is_empty() || !code.chars().all(|c| c.is_ascii_alphanumeric()) { bail!("The share code must be alphanumeric"); }
+    if code.len() <= 26 { bail!("That share code is too short"); }
     let cfg = Config::load()?;
-    let server_url = server.map(|s| normalize_url(&s)).or(from_link).or_else(|| cfg.server_url())
+    let server_url = server.map(normalize_url).or(from_link).or_else(|| cfg.server_url())
         .ok_or_else(|| anyhow::anyhow!("No server in that code. Paste the whole link, or use --server <url>"))?;
+    let tunnel_id = code[..code.len() - 26].to_string();
+    Ok((code, tunnel_id, server_url))
+}
+
+fn is_fatal(text: &str) -> bool { text.contains("(invalid_code)") || text.contains("(not_found)") }
+
+pub async fn run(opts: Options, out: Events<JoinEvent>, mut stop: Stop) -> Result<()> {
+    let (code, tunnel_id, server_url) = resolve(&opts.target, opts.server.as_deref())?;
+    let cfg = Config::load()?;
     let url = ws_url(&server_url);
 
-    let spin = spinner("Connecting to server...");
-    let joined = join(&url, &code, cfg.accept_invalid_certs).await;
-    spin.finish_and_clear();
+    let _ = out.send(JoinEvent::Connecting);
+    let joined = tokio::select! {
+        result = join(&url, &code, cfg.accept_invalid_certs) => result,
+        _ = stop.wait() => return Ok(()),
+    };
     let (mux, mut events, remote_port, online) = joined?;
-    let tunnel_id = code[..code.len() - 26].to_string();
 
-    let (tcp, udp, local_port) = bind(&bind_addr, port.unwrap_or(remote_port), port.is_some()).await?;
-    println!("{} Forwarding {} (tcp+udp) {} {}", style("✓").green().bold(),
-        style(format!("{bind_addr}:{local_port}")).cyan().bold(), style("→").dim(), style(&tunnel_id).bold().green());
-    if !online { println!("{} The owner is currently offline, connections will work once it is back", style("!").yellow().bold()); }
-    println!("Press {} to stop.", style("Ctrl+C").bold());
+    let bound = bind(&opts.bind, opts.port.unwrap_or(remote_port), opts.pick_port.as_ref()).await;
+    let (tcp, udp, local_port) = match bound {
+        Ok(bound) => bound,
+        Err(err) => {
+            let _ = mux.send_control(json!({ "type": "bye" })).await;
+            mux.close().await;
+            return Err(err);
+        }
+    };
+    let _ = out.send(JoinEvent::Forwarding { bind: opts.bind.clone(), port: local_port, tunnel_id, owner_online: online });
 
     let current: Current = Arc::new(Mutex::new(Some(mux.clone())));
     tokio::spawn(accept_tcp(tcp, current.clone()));
@@ -123,12 +158,12 @@ pub async fn run(target: String, port: Option<u16>, bind_addr: String, server: O
             ended = drain(&mut events) => {
                 if let Some(reason) = ended {
                     *current.lock().unwrap() = None;
-                    println!("{} Disconnected: {}", style("✓").green().bold(), style(reason).dim());
+                    let _ = out.send(JoinEvent::Ended(reason));
                     return Ok(());
                 }
                 true
             }
-            _ = tokio::signal::ctrl_c() => false,
+            _ = stop.wait() => false,
         };
         if !lost {
             let session = current.lock().unwrap().take();
@@ -136,21 +171,25 @@ pub async fn run(target: String, port: Option<u16>, bind_addr: String, server: O
                 let _ = session.send_control(json!({ "type": "bye" })).await;
                 session.close().await;
             }
-            println!("\n{} Stopped", style("✓").green().bold());
+            let _ = out.send(JoinEvent::Stopped);
             return Ok(());
         }
         *current.lock().unwrap() = None;
 
-        let spin = spinner("Connection lost, reconnecting...");
+        let mut reason = None;
         loop {
+            let _ = out.send(JoinEvent::Reconnecting { seconds: backoff, reason: reason.take() });
             tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(backoff)) => {}
-                _ = tokio::signal::ctrl_c() => { spin.finish_and_clear(); println!("{} Stopped", style("✓").green().bold()); return Ok(()); }
+                _ = stop.wait() => { let _ = out.send(JoinEvent::Stopped); return Ok(()); }
             }
-            match join(&url, &code, cfg.accept_invalid_certs).await {
+            let attempt = tokio::select! {
+                result = join(&url, &code, cfg.accept_invalid_certs) => result,
+                _ = stop.wait() => { let _ = out.send(JoinEvent::Stopped); return Ok(()); }
+            };
+            match attempt {
                 Ok((new_mux, new_events, _, _)) => {
-                    spin.finish_and_clear();
-                    println!("{} Reconnected", style("✓").green().bold());
+                    let _ = out.send(JoinEvent::Reconnected);
                     *current.lock().unwrap() = Some(new_mux);
                     events = new_events;
                     backoff = 1;
@@ -158,9 +197,9 @@ pub async fn run(target: String, port: Option<u16>, bind_addr: String, server: O
                 }
                 Err(err) => {
                     let text = err.to_string();
-                    if text.contains("(invalid_code)") || text.contains("(not_found)") { spin.finish_and_clear(); bail!("{text}"); }
+                    if is_fatal(&text) { bail!("{text}"); }
                     backoff = (backoff * 2).min(30);
-                    spin.set_message(format!("Reconnecting in {backoff}s... ({text})"));
+                    reason = Some(text);
                 }
             }
         }

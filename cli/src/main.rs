@@ -1,11 +1,15 @@
 mod api;
 mod auth;
+mod cli;
 mod config;
 mod connect;
+#[cfg(feature = "gui")]
+mod gui;
 mod handler;
 mod mux;
 mod qr;
 mod serve;
+mod session;
 mod tcp;
 mod tunnel;
 
@@ -49,6 +53,10 @@ enum Commands {
         #[arg(short, long, default_value = "127.0.0.1")] bind: String,
         #[arg(short, long)] server: Option<String>,
     },
+    #[cfg(feature = "gui")]
+    Gui {
+        link: Option<String>,
+    },
     Config {
         #[command(subcommand)]
         action: ConfigAction,
@@ -72,38 +80,50 @@ enum ConfigAction {
     Show,
 }
 
-#[tokio::main]
-async fn main() {
-    if let Err(err) = run().await {
-        eprintln!("{} {err:#}", style("✗").red().bold());
-        std::process::exit(1);
+fn main() {
+    let cli = Cli::parse();
+    let runtime = tokio::runtime::Runtime::new().unwrap_or_else(|err| fail(err.into()));
+
+    #[cfg(feature = "gui")]
+    if let Commands::Gui { link } = cli.command {
+        gui::launch(runtime.handle().clone(), link).unwrap_or_else(|err| fail(err));
+        return;
     }
+
+    runtime.block_on(run(cli)).unwrap_or_else(|err| fail(err));
 }
 
-async fn run() -> anyhow::Result<()> {
-    let cli = Cli::parse();
+fn fail(err: anyhow::Error) -> ! {
+    eprintln!("{} {err:#}", style("✗").red().bold());
+    std::process::exit(1)
+}
+
+async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
-        Commands::Login => auth::login().await,
-        Commands::Logout => auth::logout(),
+        Commands::Login => cli::login().await,
+        Commands::Logout => cli::logout(),
         Commands::Http { target, name, keep_host, allow, password, require_login } =>
-            tunnel::run(tunnel::Options {
-                mode: "http", target: tunnel::TargetSpec::parse(&target)?, name, keep_host,
-                access: tunnel::Access::new(allow, password, require_login)?,
-            }).await,
+            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::parse(&target)?, name, keep_host, tunnel::Access::new(allow, password, require_login)?)).await,
         Commands::Serve { dir, name, allow, password, require_login } =>
-            tunnel::run(tunnel::Options {
-                mode: "http", target: tunnel::TargetSpec::dir(&dir)?, name, keep_host: false,
-                access: tunnel::Access::new(allow, password, require_login)?,
-            }).await,
+            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::dir(&dir)?, name, false, tunnel::Access::new(allow, password, require_login)?)).await,
         Commands::Tcp { target, name, allow } =>
-            tunnel::run(tunnel::Options {
-                mode: "tcp", target: tunnel::TargetSpec::Addr(tunnel::Target::parse(&target)?), name, keep_host: false,
-                access: tunnel::Access::new(allow, None, false)?,
-            }).await,
-        Commands::Connect { target, port, bind, server } => connect::run(target, port, bind, server).await,
+            cli::tunnel(tunnel::Options::tcp(tunnel::Target::parse(&target)?, name, tunnel::Access::new(allow, None, false)?)).await,
+        Commands::Connect { target, port, bind, server } => cli::connect(target, port, bind, server).await,
+        #[cfg(feature = "gui")]
+        Commands::Gui { .. } => unreachable!("handled before the runtime starts"),
         Commands::Links { action } => match action {
-            LinkAction::Register => handler::install(),
-            LinkAction::Forget => handler::remove(),
+            LinkAction::Register => {
+                let where_ = handler::install()?;
+                println!("{} {} links now open in this tunlit", style("✓").green().bold(), style(format!("{}://", handler::SCHEME)).cyan().bold());
+                println!("  {}", style(where_.to_string_lossy()).dim());
+                println!("  Your browser will ask before it opens one.");
+                Ok(())
+            }
+            LinkAction::Forget => {
+                handler::remove()?;
+                println!("{} {} links are no longer handled by tunlit", style("✓").green().bold(), style(format!("{}://", handler::SCHEME)).bold());
+                Ok(())
+            }
         },
         Commands::Config { action } => match action {
             ConfigAction::Set { key, value } => config::set(&key, &value),
