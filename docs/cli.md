@@ -33,8 +33,9 @@ tunlit config set device-token <token>
 ## Commands
 
 Every mode accepts the local target as a plain port (`3000` means `127.0.0.1:3000`) or `host:port`
-(`192.168.1.5:8080`). Only plain HTTP targets are supported for `tunlit http`; TLS is terminated by nginx in front
-of the server.
+(`192.168.1.5:8080`). `tunlit http` also takes a URL: `https://localhost:8443` makes the CLI speak TLS to the target,
+and a bare `host:443` is treated the same way. The certificate is not checked, since it is usually self-signed on a
+dev machine, so the tunnel works with whatever the app presents. Visitors still get the server's own certificate.
 
 `tunlit http` also accepts a **directory**. tunlit then serves it with a built-in static file server, so you can skip
 `python3 -m http.server`:
@@ -52,6 +53,7 @@ runs on `127.0.0.1` on a random port and stops together with the tunnel.
 ```sh
 tunlit http 3000
 tunlit http 192.168.1.5:8080 --name myapp
+tunlit http https://localhost:8443
 tunlit http ./public --name site
 ```
 

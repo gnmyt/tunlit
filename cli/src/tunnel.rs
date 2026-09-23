@@ -16,26 +16,63 @@ use crate::tcp::{pump_tcp, pump_udp_owner};
 
 pub const PROTOCOL_VERSION: u64 = 1;
 
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
 #[derive(Clone)]
-pub struct Target { pub host: String, pub port: u16 }
+pub struct Target { pub host: String, pub port: u16, pub tls: bool }
 
 impl Target {
     pub fn parse(raw: &str) -> Result<Self> {
         let raw = raw.trim();
-        if let Ok(port) = raw.parse::<u16>() { return Ok(Self { host: "127.0.0.1".into(), port }); }
-        let (host, port) = raw.rsplit_once(':').with_context(|| format!("Invalid target \"{raw}\": use <port> or <host>:<port>"))?;
-        let port = port.parse::<u16>().with_context(|| format!("Invalid port in \"{raw}\""))?;
+        if let Ok(port) = raw.parse::<u16>() { return Ok(Self { host: "127.0.0.1".into(), port, tls: false }); }
+
+        let (scheme, rest) = match raw.split_once("://") {
+            Some((scheme, rest)) => (Some(scheme.to_ascii_lowercase()), rest.split(['/', '?', '#']).next().unwrap_or("")),
+            None => (None, raw),
+        };
+        let default_port = match scheme.as_deref() {
+            Some("https") => Some(443),
+            Some("http") => Some(80),
+            Some(other) => bail!("Invalid target \"{raw}\": {other}:// is not supported, use http:// or https://"),
+            None => None,
+        };
+        let (host, port) = match rest.rsplit_once(':') {
+            Some((host, port)) if !port.contains(']') => {
+                (host, port.parse::<u16>().with_context(|| format!("Invalid port in \"{raw}\""))?)
+            }
+            _ => (rest, default_port.with_context(|| format!("Invalid target \"{raw}\": use <port>, <host>:<port> or https://<host>[:<port>]"))?),
+        };
         let host = host.trim_matches(|c| c == '[' || c == ']');
         if host.is_empty() { bail!("Invalid target \"{raw}\""); }
-        Ok(Self { host: host.to_string(), port })
+        let tls = match scheme.as_deref() {
+            Some("https") => true,
+            Some(_) => false,
+            None => port == 443,
+        };
+        Ok(Self { host: host.to_string(), port, tls })
     }
 
     pub fn authority(&self) -> String {
         if self.host.contains(':') { format!("[{}]:{}", self.host, self.port) } else { format!("{}:{}", self.host, self.port) }
     }
 
-    pub async fn resolve(&self) -> Result<SocketAddr> {
-        tokio::net::lookup_host((self.host.as_str(), self.port)).await?.next().with_context(|| format!("Could not resolve {}", self.host))
+    pub fn label(&self) -> String {
+        if self.tls { format!("https://{}", self.authority()) } else { self.authority() }
+    }
+
+    fn tls_connector(&self) -> Result<tokio_native_tls::TlsConnector> {
+        let connector = native_tls::TlsConnector::builder()
+            .danger_accept_invalid_certs(true)
+            .danger_accept_invalid_hostnames(true)
+            .use_sni(self.host.parse::<std::net::IpAddr>().is_err())
+            .build()?;
+        Ok(connector.into())
+    }
+
+    pub async fn resolve(&self) -> Result<Vec<SocketAddr>> {
+        let addrs: Vec<SocketAddr> = tokio::net::lookup_host((self.host.as_str(), self.port)).await?.collect();
+        if addrs.is_empty() { bail!("Could not resolve {}", self.host); }
+        Ok(addrs)
     }
 }
 
@@ -141,7 +178,7 @@ fn print_ready(reg: &Registration, target: &Target, label: &str, server_url: &st
         qr::copy(url);
     } else if let Some(code) = &reg.share_code {
         let link = reg.connect_url.clone().unwrap_or_else(|| format!("{server_url}/@tunlit/connect/{code}"));
-        println!("  Forwarding {} (tcp+udp)", style(target.authority()).bold());
+        println!("  Forwarding {} (tcp+udp)", style(target.label()).bold());
         println!("  Others run: {}", style(format!("tunlit connect {link}")).cyan().bold());
         println!();
         qr::print(&link);
@@ -197,15 +234,31 @@ fn print_request(message: &serde_json::Value) {
     println!("{} {} {} {}", label, coloured_status.bold(), style(path).dim(), style(format!("{duration}ms")).dim());
 }
 
+async fn connect_target(addrs: &[SocketAddr]) -> Result<TcpStream> {
+    let mut last = anyhow::anyhow!("no address to connect to");
+    for addr in addrs {
+        match tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect(addr)).await {
+            Ok(Ok(socket)) => { let _ = socket.set_nodelay(true); return Ok(socket); }
+            Ok(Err(err)) => last = err.into(),
+            Err(_) => last = anyhow::anyhow!("connect timed out"),
+        }
+    }
+    Err(last)
+}
+
 async fn handle_stream(writer: crate::mux::MuxWriter, reader: crate::mux::MuxReader, meta: OpenMeta, target: Target) {
-    let Ok(addr) = target.resolve().await else { writer.reset(); return };
+    let Ok(addrs) = target.resolve().await else { writer.reset(); return };
     if meta.is_udp() {
-        if pump_udp_owner(addr, writer, reader).await.is_err() { /* stream was reset on error */ }
+        if pump_udp_owner(addrs[0], writer, reader).await.is_err() { /* stream was reset on error */ }
         return;
     }
-    match TcpStream::connect(addr).await {
-        Ok(socket) => pump_tcp(socket, writer, reader).await,
-        Err(_) => writer.reset(),
+    let Ok(socket) = connect_target(&addrs).await else { writer.reset(); return };
+    if !target.tls { return pump_tcp(socket, writer, reader).await; }
+
+    let handshake = async { target.tls_connector()?.connect(&target.host, socket).await.map_err(anyhow::Error::from) };
+    match tokio::time::timeout(CONNECT_TIMEOUT, handshake).await {
+        Ok(Ok(stream)) => pump_tcp(stream, writer, reader).await,
+        _ => writer.reset(),
     }
 }
 
@@ -215,12 +268,12 @@ pub async fn run(opts: Options) -> Result<()> {
     let url = ws_url(&server_url);
 
     let (target, label) = match &opts.target {
-        TargetSpec::Addr(target) => (target.clone(), target.authority()),
+        TargetSpec::Addr(target) => (target.clone(), target.label()),
         TargetSpec::Dir(dir) => {
             if opts.mode == "tcp" { bail!("`tunlit tcp` needs a port or host:port, not a directory"); }
             let port = serve::start(dir.clone()).await?;
             let shown = if dir == Path::new(".") { std::env::current_dir().map(|d| d.display().to_string()).unwrap_or_else(|_| ".".into()) } else { dir.display().to_string() };
-            (Target { host: "127.0.0.1".into(), port }, format!("{shown} (static files)"))
+            (Target { host: "127.0.0.1".into(), port, tls: false }, format!("{shown} (static files)"))
         }
     };
 

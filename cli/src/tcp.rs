@@ -1,15 +1,14 @@
 use anyhow::Result;
 use std::net::SocketAddr;
 use std::time::Duration;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpStream, UdpSocket};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::net::UdpSocket;
 use crate::mux::{Incoming, MuxReader, MuxWriter, CHUNK};
 
 pub const UDP_IDLE: Duration = Duration::from_secs(60);
 
-pub async fn pump_tcp(socket: TcpStream, writer: MuxWriter, mut reader: MuxReader) {
-    let _ = socket.set_nodelay(true);
-    let (mut rd, mut wr) = socket.into_split();
+pub async fn pump_tcp<S: AsyncRead + AsyncWrite + Unpin>(socket: S, writer: MuxWriter, mut reader: MuxReader) {
+    let (mut rd, mut wr) = tokio::io::split(socket);
 
     let to_mux = async {
         let mut buf = vec![0u8; CHUNK];

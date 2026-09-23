@@ -186,6 +186,7 @@ async fn drain(events: &mut MuxEvents) -> Option<String> {
 async fn accept_tcp(listener: TcpListener, current: Current) {
     loop {
         let Ok((socket, peer)) = listener.accept().await else { continue };
+        let _ = socket.set_nodelay(true);
         let mux = current.lock().unwrap().clone();
         let Some(mux) = mux else { drop(socket); continue };
         tokio::spawn(async move {

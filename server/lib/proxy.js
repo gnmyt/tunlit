@@ -41,13 +41,15 @@ const stripQueryParam = url => {
     return rest ? `${path}?${rest}` : path;
 };
 
+const hostHeader = target => (target.port === 80 || target.port === 443 ? target.host : target.authority);
+
 const buildUpstreamHeaders = (req, info, tunnel, { pathMode }) => {
     const headers = {};
     for (const [name, value] of Object.entries(req.headers)) {
         if (HOP_BY_HOP.has(name) || name === "host") continue;
         headers[name] = value;
     }
-    headers.host = tunnel.keepHost ? info.host : tunnel.target.authority;
+    headers.host = tunnel.keepHost ? info.host : hostHeader(tunnel.target);
     headers["x-forwarded-host"] = info.host;
     headers["x-forwarded-proto"] = info.proto;
     headers["x-forwarded-for"] = req.headers["x-forwarded-for"] && !headers["x-forwarded-for"] ? req.headers["x-forwarded-for"] : (info.clientIp || "");
