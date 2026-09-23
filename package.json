@@ -22,18 +22,18 @@
   "dependencies": {
     "@simplewebauthn/server": "^14.0.2",
     "acme-client": "^5.4.0",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^5.4.2",
     "openid-client": "^6.8.8",
     "sequelize": "^6.37.8",
     "speakeasy": "^2.0.0",
     "sqlite3": "^6.0.1",
-    "ws": "^8.18.0"
+    "ws": "^8.21.3"
   },
   "optionalDependencies": {
-    "bufferutil": "^4.0.9"
+    "bufferutil": "^4.1.0"
   },
   "devDependencies": {
-    "concurrently": "^9.2.0",
+    "concurrently": "^10.0.5",
     "vitepress": "^1.6.4"
   }
 }

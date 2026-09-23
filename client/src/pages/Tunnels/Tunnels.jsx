@@ -11,7 +11,7 @@ const POLL_INTERVAL = 3000;
 export const Tunnels = () => {
     const { sendToast } = useToast();
     const [data, setData] = useState(null);
-    const [now, setNow] = useState(Date.now());
+    const [now, setNow] = useState(() => Date.now());
 
     const load = useCallback(async () => {
         try {

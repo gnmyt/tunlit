@@ -23,7 +23,7 @@ export const TunnelDetail = () => {
     const { sendToast } = useToast();
     const [data, setData] = useState(null);
     const [gone, setGone] = useState(false);
-    const [now, setNow] = useState(Date.now());
+    const [now, setNow] = useState(() => Date.now());
     const [closing, setClosing] = useState(false);
     const [disconnecting, setDisconnecting] = useState(null);
 

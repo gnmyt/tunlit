@@ -87,7 +87,7 @@ export const Login = () => {
     const withProvider = async provider => {
         try {
             const { url } = await postRequest(`auth/oidc/${provider.id}/start`);
-            window.location.href = url;
+            window.location.assign(url);
         } catch (error) {
             sendToast("Error", error.message);
         }

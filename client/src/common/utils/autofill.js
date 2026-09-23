@@ -6,7 +6,7 @@ export const formValues = form => Object.fromEntries(new FormData(form).entries(
 
 export const useAutofill = (formRef, apply) => {
     const latest = useRef(apply);
-    latest.current = apply;
+    useEffect(() => { latest.current = apply; });
 
     useEffect(() => {
         const form = formRef.current;

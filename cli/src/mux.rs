@@ -91,7 +91,7 @@ impl Drop for Shared {
         self.mux.forget(self.id);
         let clean = self.close_sent.load(Ordering::Relaxed) && self.close_received.load(Ordering::Relaxed);
         if !self.dead.load(Ordering::Relaxed) && !clean {
-            self.mux.try_send(Message::Binary(encode(RESET, self.id, &[])));
+            self.mux.try_send(Message::Binary(encode(RESET, self.id, &[]).into()));
         }
     }
 }
@@ -105,7 +105,7 @@ impl MuxWriter {
     pub async fn send(&self, data: &[u8]) -> Result<()> {
         for chunk in data.chunks(CHUNK) {
             if !self.shared.credit.take(chunk.len(), &self.shared.dead).await { bail!("stream closed"); }
-            self.shared.mux.send(Message::Binary(encode(DATA, self.shared.id, chunk))).await?;
+            self.shared.mux.send(Message::Binary(encode(DATA, self.shared.id, chunk).into())).await?;
         }
         Ok(())
     }
@@ -113,17 +113,17 @@ impl MuxWriter {
     pub async fn send_datagram(&self, data: &[u8]) -> Result<()> {
         if data.len() > 65507 { return Ok(()); }
         if self.shared.dead.load(Ordering::Relaxed) { bail!("stream closed"); }
-        self.shared.mux.send(Message::Binary(encode(DATAGRAM, self.shared.id, data))).await
+        self.shared.mux.send(Message::Binary(encode(DATAGRAM, self.shared.id, data).into())).await
     }
 
     pub async fn close(&self) {
         if self.shared.dead.load(Ordering::Relaxed) || self.shared.close_sent.swap(true, Ordering::Relaxed) { return; }
-        let _ = self.shared.mux.send(Message::Binary(encode(CLOSE, self.shared.id, &[]))).await;
+        let _ = self.shared.mux.send(Message::Binary(encode(CLOSE, self.shared.id, &[]).into())).await;
     }
 
     pub fn reset(&self) {
         if self.shared.dead.swap(true, Ordering::Relaxed) { return; }
-        self.shared.mux.try_send(Message::Binary(encode(RESET, self.shared.id, &[])));
+        self.shared.mux.try_send(Message::Binary(encode(RESET, self.shared.id, &[]).into()));
     }
 }
 
@@ -132,7 +132,7 @@ impl MuxReader {
         if self.unacked == 0 || self.shared.dead.load(Ordering::Relaxed) { return; }
         let n = self.unacked;
         self.unacked = 0;
-        self.shared.mux.try_send(Message::Binary(encode(WINDOW_UPDATE, self.shared.id, &n.to_be_bytes())));
+        self.shared.mux.try_send(Message::Binary(encode(WINDOW_UPDATE, self.shared.id, &n.to_be_bytes()).into()));
     }
 
     pub async fn recv(&mut self) -> Incoming {
@@ -279,12 +279,12 @@ impl Mux {
         if self.closed.load(Ordering::Relaxed) { bail!("not connected"); }
         let id = self.next_id.fetch_add(2, Ordering::Relaxed);
         let (writer, reader) = self.register(id);
-        self.send(Message::Binary(encode(OPEN, id, serde_json::to_vec(meta)?.as_slice()))).await?;
+        self.send(Message::Binary(encode(OPEN, id, serde_json::to_vec(meta)?.as_slice()).into())).await?;
         Ok((writer, reader))
     }
 
     pub async fn send_control(&self, message: Value) -> Result<()> {
-        self.send(Message::Text(message.to_string())).await
+        self.send(Message::Text(message.to_string().into())).await
     }
 
     pub async fn close(&self) {

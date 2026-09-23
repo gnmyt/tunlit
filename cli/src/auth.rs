@@ -14,7 +14,7 @@ pub async fn login() -> Result<()> {
     let server_url: String = if let Some(ref url) = cfg.server_url {
         println!("Current server: {}", style(url).cyan());
         let choice = Select::new().with_prompt("Server URL")
-            .items(&["Keep current server", "Enter a new server URL"]).default(0).interact()?;
+            .items(["Keep current server", "Enter a new server URL"]).default(0).interact()?;
         if choice == 0 { url.clone() } else { Input::new().with_prompt("Server URL").interact_text()? }
     } else {
         Input::new().with_prompt("Server URL (e.g. https://tunlit.example.com)").interact_text()?
