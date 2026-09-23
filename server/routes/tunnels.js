@@ -39,7 +39,7 @@ app.get("/:id/requests/:requestId", async (req, res) => {
 });
 
 app.post("/:id/requests/:requestId/replay", async (req, res) => {
-    const result = await replay(req, req.params.id.toLowerCase(), Number(req.params.requestId));
+    const result = await replay(req, req.params.id.toLowerCase(), Number(req.params.requestId), req.body || {});
     if (result.code) return res.status(result.code).json(result);
     res.json(result);
 });

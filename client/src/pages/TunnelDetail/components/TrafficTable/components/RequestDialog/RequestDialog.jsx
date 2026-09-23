@@ -6,20 +6,23 @@ import Button from "@/common/components/Button";
 import { getRequest, postRequest } from "@/common/utils/RequestUtil.js";
 import { formatBytes } from "@/common/utils/formatUtils.js";
 import { useToast } from "@/common/contexts/toast.js";
-import { RotateCcw } from "lucide-react";
+import { Pencil, RotateCcw } from "lucide-react";
 import { BodyView } from "./BodyView.jsx";
+import { RequestEdit } from "./RequestEdit.jsx";
 
 export const RequestDialog = ({ tunnelId, entry, onClose }) => {
     const { sendToast } = useToast();
     const [detail, setDetail] = useState(null);
     const [error, setError] = useState(null);
     const [replaying, setReplaying] = useState(false);
+    const [editing, setEditing] = useState(false);
 
-    const replay = async () => {
+    const replay = async (changes = {}) => {
         setReplaying(true);
         try {
-            const result = await postRequest(`tunnels/${tunnelId}/requests/${entry.id}/replay`);
+            const result = await postRequest(`tunnels/${tunnelId}/requests/${entry.id}/replay`, changes);
             sendToast("Success", result.message);
+            setEditing(false);
         } catch (failure) {
             sendToast("Error", failure.message);
         } finally {
@@ -31,6 +34,7 @@ export const RequestDialog = ({ tunnelId, entry, onClose }) => {
         if (!entry) return;
         setDetail(null);
         setError(null);
+        setEditing(false);
         getRequest(`tunnels/${tunnelId}/requests/${entry.id}`)
             .then(data => setDetail(data.request))
             .catch(failure => setError(failure.message));
@@ -43,10 +47,12 @@ export const RequestDialog = ({ tunnelId, entry, onClose }) => {
                     <span className="request-method">{entry?.kind === "ws" ? "WS" : entry?.method}</span>
                     <span className="request-path" title={entry?.path}>{entry?.path}</span>
                     <span className="request-status">{entry?.status}</span>
-                    {entry?.kind !== "ws" && (
-                        <Button type="ghost" icon={RotateCcw} text="Replay" buttonType="button" onClick={replay}
+                    {entry?.kind !== "ws" && !editing && <>
+                        <Button type="ghost" icon={Pencil} text="Edit" buttonType="button" onClick={() => setEditing(true)}
+                                disabled={!detail} />
+                        <Button type="ghost" icon={RotateCcw} text="Replay" buttonType="button" onClick={() => replay()}
                                 disabled={replaying || !detail || detail.request.truncated} />
-                    )}
+                    </>}
                 </div>
                 <div className="request-dialog-meta">
                     {entry && new Date(entry.time).toLocaleString()} · {entry?.duration}ms · {entry?.ip}
@@ -55,7 +61,11 @@ export const RequestDialog = ({ tunnelId, entry, onClose }) => {
                 {!detail && !error && <Loading />}
                 {error && <p className="request-dialog-error">{error}</p>}
 
-                {detail && (
+                {detail && editing && (
+                    <RequestEdit entry={entry} detail={detail} busy={replaying} onSend={replay} onCancel={() => setEditing(false)} />
+                )}
+
+                {detail && !editing && (
                     <div className="request-dialog-body">
                         <section>
                             <h3>Request <span>{formatBytes(detail.request.bytes)}</span></h3>

@@ -86,15 +86,51 @@ module.exports.updateAccess = async (registry, access, id, input, viewer) => {
     return { message: "Access updated", access: describePolicy(tunnel.policy) };
 };
 
-module.exports.replay = async (req, id, requestId) => {
+const METHOD = /^[A-Z]{3,10}$/;
+
+const edited = (stored, input) => {
+    const request = { ...stored.request };
+    const out = { ...stored, request };
+    if (input.method !== undefined) {
+        const method = String(input.method).trim().toUpperCase();
+        if (!METHOD.test(method)) throw new Error("Invalid method");
+        out.method = method;
+    }
+    if (input.path !== undefined) {
+        const path = String(input.path).trim();
+        if (!path.startsWith("/")) throw new Error("The path must start with /");
+        out.path = path;
+    }
+    if (input.headers !== undefined) {
+        if (!Array.isArray(input.headers) || input.headers.some(pair => !Array.isArray(pair) || pair.length !== 2)) {
+            throw new Error("Headers must be a list of [name, value] pairs");
+        }
+        request.headers = input.headers.map(([name, value]) => [String(name).trim(), String(value).trim()]).filter(([name]) => name);
+    }
+    if (input.body !== undefined) {
+        const body = Buffer.from(String(input.body), "utf8");
+        request.body = body.length ? body.toString("base64") : null;
+        request.bytes = body.length;
+        request.truncated = false;
+    }
+    return out;
+};
+
+module.exports.replay = async (req, id, requestId, input) => {
     const tunnel = req.registry.get(id);
     if (!mayTouch(tunnel, req.session)) return { code: 404, message: "Tunnel not found" };
     if (!tunnel.online) return { code: 502, message: "The tunnel is offline" };
     const stored = await req.traffic.get(id, requestId);
     if (!stored) return { code: 404, message: "That request is no longer stored" };
     if (stored.kind === "ws") return { code: 400, message: "WebSocket connections cannot be replayed" };
-    if (stored.request.truncated) return { code: 400, message: "The request body was too large to store" };
-    const status = await replayRequest(tunnel, stored, req.onRequest(tunnel));
+    let request;
+    try {
+        request = edited(stored, input);
+    } catch (err) {
+        return { code: 400, message: err.message };
+    }
+    if (request.request.truncated) return { code: 400, message: "The request body was too large to store" };
+    const status = await replayRequest(tunnel, request, req.onRequest(tunnel));
     return { message: `Replayed, ${status}`, status };
 };
 

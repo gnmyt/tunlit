@@ -3,14 +3,7 @@ import Prism from "prismjs";
 import "prismjs/components/prism-json";
 import "prismjs/components/prism-markup";
 import "prismjs/components/prism-css";
-
-const decode = value => {
-    try {
-        return new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(atob(value), c => c.charCodeAt(0)));
-    } catch {
-        return null;
-    }
-};
+import { decode } from "./body.js";
 
 const languageFor = type => {
     if (/json/i.test(type)) return "json";
