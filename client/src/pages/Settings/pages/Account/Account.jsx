@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "@/common/components/Button";
 import Input from "@/common/components/Input";
-import { putRequest } from "@/common/utils/RequestUtil.js";
+import UsageSummary from "@/common/components/UsageSummary";
+import { getRequest, putRequest } from "@/common/utils/RequestUtil.js";
 import { useToast } from "@/common/contexts/toast.js";
 import { useUser } from "@/common/contexts/user.js";
 import { formValues, useAutofill } from "@/common/utils/autofill.js";
@@ -15,7 +16,12 @@ export const Account = () => {
     const [newPassword, setNewPassword] = useState("");
     const [confirm, setConfirm] = useState("");
     const [saving, setSaving] = useState(false);
+    const [quotas, setQuotas] = useState(null);
     const formRef = useRef(null);
+
+    useEffect(() => {
+        getRequest("quotas").then(setQuotas).catch(() => null);
+    }, []);
 
     useAutofill(formRef, filled => {
         if (filled["current-password"]) setCurrentPassword(current => current || filled["current-password"]);
@@ -44,6 +50,14 @@ export const Account = () => {
 
     return (
         <>
+        {quotas && (
+            <section className="settings-panel">
+                <div className="settings-head">
+                    <h2>Usage</h2>
+                </div>
+                <UsageSummary usage={quotas.usage} limits={quotas.limits} />
+            </section>
+        )}
         <form className="settings-panel" onSubmit={submit} ref={formRef}>
             <div className="settings-head">
                 <h2>Change password</h2>

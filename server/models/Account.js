@@ -7,5 +7,6 @@ module.exports = db.define("accounts", {
     role: {type: Sequelize.STRING, allowNull: false, defaultValue: "user"},
     totpSecret: {type: Sequelize.STRING},
     totpEnabled: {type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false},
+    quotas: {type: Sequelize.TEXT},
     createdAt: {type: Sequelize.DATE, defaultValue: Sequelize.NOW},
 }, {freezeTableName: true, updatedAt: false});

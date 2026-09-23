@@ -41,6 +41,10 @@ class DomainManager {
         return this.byHost.get(hostname) || null;
     }
 
+    countFor(accountId) {
+        return Domain.count({ where: { accountId } });
+    }
+
     hostsFor(tunnelName) {
         return [...this.byHost].filter(([, name]) => name === tunnelName).map(([hostname]) => hostname);
     }

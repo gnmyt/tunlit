@@ -19,7 +19,7 @@ const wantsHtml = req => /\btext\/html\b/.test(req.headers.accept || "");
 
 const ACME_PREFIX = "/.well-known/acme-challenge/";
 
-const createRouter = ({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, control }) => {
+const createRouter = ({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, control }) => {
     const onRequest = tunnel => entry => {
         traffic.record(tunnel.id, entry);
         stats.recordRequest(tunnel.id);
@@ -33,6 +33,7 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
     api.use(`${API_PREFIX}/auth`, require("../routes/auth"));
     api.use(`${API_PREFIX}/tunnels`, authenticate, require("../routes/tunnels"));
     api.use(`${API_PREFIX}/persistent`, authenticate, require("../routes/persistent"));
+    api.use(`${API_PREFIX}/quotas`, authenticate, require("../routes/quotas"));
     api.use(`${API_PREFIX}/settings`, authenticate, require("../routes/settings"));
     api.use(`${API_PREFIX}/devices`, authenticate, require("../routes/devices"));
     api.use(`${API_PREFIX}/accounts`, authenticate, requireAdmin, require("../routes/accounts"));
@@ -86,7 +87,7 @@ const createRouter = ({ config, auth, registry, traffic, access, stats, devices,
 
     const handleUi = async (req, res, info, pathname) => {
         if (pathname === API_PREFIX || pathname.startsWith(`${API_PREFIX}/`)) {
-            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, info });
+            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, info });
             if (!handled) sendJson(res, 404, { error: "not_found" });
             return;
         }

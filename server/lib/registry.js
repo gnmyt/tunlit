@@ -54,10 +54,11 @@ const parseTarget = raw => {
 };
 
 class Registry extends EventEmitter {
-    constructor(config, domains) {
+    constructor(config, domains, quotas) {
         super();
         this.config = config;
         this.domains = domains;
+        this.quotas = quotas;
         this.tunnels = new Map();
     }
 
@@ -105,6 +106,10 @@ class Registry extends EventEmitter {
                 return { tunnel: existing, resumed: true };
             }
         }
+
+        const owned = [...this.tunnels.values()].filter(tunnel => tunnel.accountId === account.id).length;
+        await this.quotas.enforce(account.id, "tunnels", owned);
+        await this.quotas.enforceTraffic(account.id);
 
         const { id, definition } = await this._allocateId(name, account);
         const tunnel = new Tunnel({ id, mode, target: parsedTarget, keepHost, accountId: account.id, owner: account.username });
@@ -173,6 +178,12 @@ class Registry extends EventEmitter {
         tunnel.joiners.clear();
         logger.info(`Tunnel ${id} removed`, { reason });
         this.emit("removed", tunnel);
+    }
+
+    closeFor(accountId, reason) {
+        for (const tunnel of [...this.tunnels.values()]) {
+            if (tunnel.accountId === accountId) this.remove(tunnel.id, reason);
+        }
     }
 
     join(session, code) {

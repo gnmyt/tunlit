@@ -1,0 +1,32 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.usage-summary
+  display: grid
+  grid-template-columns: repeat(4, 1fr)
+  gap: 0.75rem
+
+  li
+    display: flex
+    flex-direction: column
+    gap: 0.125rem
+    padding: 0.75rem 0.875rem
+    background-color: colors.$surface-raised
+    border: 1px solid colors.$border
+    border-radius: 0.75rem
+
+  @media (max-width: breakpoints.$mobile)
+    grid-template-columns: 1fr 1fr
+
+.usage-label
+  color: colors.$muted
+  font-size: 0.75rem
+
+.usage-value
+  font-size: 1rem
+  font-weight: 600
+  font-variant-numeric: tabular-nums
+
+.usage-limit
+  color: colors.$muted
+  font-weight: 500

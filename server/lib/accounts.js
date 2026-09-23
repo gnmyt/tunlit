@@ -12,6 +12,7 @@ const describe = account => ({
     id: account.id,
     username: account.username,
     role: account.role,
+    quotas: account.quotas ? JSON.parse(account.quotas) : null,
     createdAt: account.createdAt,
 });
 
@@ -43,7 +44,7 @@ const create = async ({ username, password, role = "user" }) => {
 
 const adminCount = () => Account.count({ where: { role: "admin" } });
 
-const update = async (id, { role, password }) => {
+const update = async (id, { role, password, quotas }) => {
     const account = await byId(id);
     if (!account) return { code: 404, message: "That account does not exist" };
 
@@ -61,6 +62,8 @@ const update = async (id, { role, password }) => {
         values.passwordHash = hashPassword(password);
         await Session.destroy({ where: { accountId: account.id } });
     }
+
+    if (quotas !== undefined) values.quotas = quotas ? JSON.stringify(quotas) : null;
 
     if (Object.keys(values).length) await Account.update(values, { where: { id: account.id } });
     return { account: describe(await byId(account.id)) };

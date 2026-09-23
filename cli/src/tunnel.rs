@@ -237,7 +237,7 @@ pub async fn prepare(opts: &Options) -> Result<(Target, String)> {
 }
 
 fn is_fatal(text: &str) -> bool {
-    text.contains("(unauthorized)") || text.contains("(invalid_name)") || text.contains("(name_taken)") || text.contains("(name_reserved)")
+    text.contains("(unauthorized)") || text.contains("(invalid_name)") || text.contains("(name_taken)") || text.contains("(name_reserved)") || text.contains("(quota_exceeded)")
 }
 
 pub async fn run(opts: Options, target: Target, out: Events<TunnelEvent>, mut stop: Stop) -> Result<()> {

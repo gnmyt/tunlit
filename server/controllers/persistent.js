@@ -72,11 +72,13 @@ module.exports.create = async (req, input) => {
     const { policy, code, message } = wantsPolicy ? policyFrom(input, live ? live.policy : emptyPolicy()) : { policy: live ? live.policy : emptyPolicy() };
     if (code) return { code, message };
 
+    const accountId = live ? live.accountId : req.session.account.id;
     let definition;
     try {
-        definition = await persistent.create(name, live ? live.accountId : req.session.account.id, policy);
+        await req.quotas.enforce(accountId, "persistent", (await persistent.list(accountId)).length);
+        definition = await persistent.create(name, accountId, policy);
     } catch (err) {
-        return { code: err.code === "name_taken" ? 409 : 500, message: err.message };
+        return { code: { name_taken: 409, quota_exceeded: 429 }[err.code] || 500, message: err.message };
     }
     definition.owner = live ? live.owner : req.session.account.username;
     if (live) {
@@ -109,10 +111,11 @@ module.exports.addDomain = async (req, name, input) => {
     const definition = await definitionFor(req, name);
     if (!definition) return NOT_FOUND;
     try {
+        await req.quotas.enforce(definition.accountId, "domains", await req.domains.countFor(definition.accountId));
         const domain = await req.domains.add(input.hostname, name, definition.accountId);
         return { message: `${domain.hostname} added`, domain };
     } catch (err) {
-        return { code: { bad_request: 400, conflict: 409 }[err.code] || 500, message: err.message };
+        return { code: { bad_request: 400, conflict: 409, quota_exceeded: 429 }[err.code] || 500, message: err.message };
     }
 };
 

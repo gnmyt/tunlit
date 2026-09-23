@@ -1,0 +1,23 @@
+@use "@/common/styles/colors"
+
+.limits
+  display: flex
+  flex-direction: column
+  gap: 1rem
+
+  .quota-fields
+    grid-template-columns: 1fr 1fr
+
+.limits-head
+  h2
+    font-size: 1.25rem
+
+  p
+    margin: 0.5rem 0 0
+    color: colors.$subtext
+    font-size: 0.8125rem
+
+.limits-actions
+  display: flex
+  justify-content: flex-end
+  gap: 0.5rem

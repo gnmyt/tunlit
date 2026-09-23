@@ -11,6 +11,7 @@ const { SessionStore } = require("./lib/sessions");
 const { AttemptLimiter } = require("./utils/attempts");
 const { CertificateManager } = require("./lib/tls/manager");
 const { DomainManager } = require("./lib/domains");
+const { Quotas } = require("./lib/quotas");
 const { isSetupRequired } = require("./controllers/setup");
 const db = require("./utils/database");
 const { runMigrations } = require("./utils/migrationRunner");
@@ -33,10 +34,12 @@ const devices = new DeviceStore();
 const auth = createAuth(devices);
 const certificates = new CertificateManager(config);
 const domains = new DomainManager({ config, certificates });
-const registry = new Registry(config, domains);
+const quotas = new Quotas();
+const registry = new Registry(config, domains, quotas);
 const traffic = new TrafficLog();
 const access = new AccessStore();
-const stats = new Stats(registry);
+const stats = new Stats(registry, quotas);
+quotas.on("exceeded", accountId => registry.closeFor(accountId, "monthly traffic limit reached"));
 registry.on("forget", tunnel => {
     traffic.forget(tunnel.id).catch(err => logger.warn(`Could not drop stored requests: ${err.message}`));
     access.forget(tunnel.id);
@@ -45,7 +48,7 @@ registry.on("forget", tunnel => {
 const sessions = new SessionStore();
 const attempts = new AttemptLimiter();
 const control = createControlServer({ config, auth, registry });
-const router = createRouter({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, control });
+const router = createRouter({ config, auth, registry, traffic, access, stats, devices, sessions, attempts, certificates, domains, quotas, control });
 
 const SERVER_OPTIONS = { keepAliveTimeout: 65_000, requestTimeout: 0, headersTimeout: 60_000 };
 
@@ -123,6 +126,8 @@ const start = async () => {
 
     await domains.load();
     if (config.ready) domains.start();
+    await quotas.load();
+    quotas.start();
     stats.start();
     traffic.start();
     buildServers();
@@ -148,6 +153,8 @@ start().catch(err => {
 const shutdown = signal => {
     logger.info(`Received ${signal}, shutting down`);
     control.close();
+    quotas.stop();
+    quotas.flush().catch(() => null);
     domains.stop();
     certificates.stop();
     stats.stop();

@@ -11,8 +11,9 @@ const empty = () => ({
 });
 
 class Stats {
-    constructor(registry, { interval = INTERVAL, buckets = BUCKETS } = {}) {
+    constructor(registry, quotas, { interval = INTERVAL, buckets = BUCKETS } = {}) {
         this.registry = registry;
+        this.quotas = quotas;
         this.interval = interval;
         this.limit = buckets;
         this.series = new Map();
@@ -70,6 +71,7 @@ class Stats {
             entry.totals.in += inBytes;
             entry.totals.out += outBytes;
             entry.totals.requests += requests;
+            this.quotas.record(tunnel.accountId, inBytes, outBytes, requests);
 
             entry.buckets.push({ t: now, in: inBytes, out: outBytes, requests });
             if (entry.buckets.length > this.limit) entry.buckets.splice(0, entry.buckets.length - this.limit);
