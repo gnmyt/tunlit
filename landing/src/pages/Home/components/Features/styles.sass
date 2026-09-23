@@ -1,0 +1,71 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.features
+  display: flex
+  flex-direction: column
+  gap: 6rem
+
+  @media (max-width: breakpoints.$mobile)
+    gap: 3.5rem
+
+.feature
+  display: grid
+  grid-template-columns: 2fr 3fr
+  gap: 3.5rem
+  align-items: center
+
+  img
+    width: 100%
+    border: 1px solid colors.$border-strong
+    border-radius: 0.75rem
+    box-shadow: colors.$shadow-md
+
+  @media (max-width: breakpoints.$tablet)
+    grid-template-columns: 1fr
+    gap: 1.75rem
+
+.feature-reverse
+  grid-template-columns: 3fr 2fr
+
+  .feature-text
+    order: 2
+
+  @media (max-width: breakpoints.$tablet)
+    grid-template-columns: 1fr
+
+    .feature-text
+      order: 0
+
+.feature-text
+  h2
+    font-size: 1.75rem
+    line-height: 1.15
+
+  p
+    margin-top: 0.75rem
+    color: colors.$subtext
+    font-size: 0.9375rem
+    line-height: 1.6
+
+  ul
+    display: flex
+    flex-direction: column
+    gap: 0.5rem
+    margin-top: 1.25rem
+
+  li
+    position: relative
+    padding-left: 1rem
+    color: colors.$subtext
+    font-size: 0.875rem
+
+    &::before
+      content: ""
+      position: absolute
+      left: 0
+      top: 0.6rem
+      width: 0.3125rem
+      height: 0.3125rem
+      border-radius: 999px
+      background-color: colors.$primary

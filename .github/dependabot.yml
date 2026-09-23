@@ -8,6 +8,10 @@ updates:
     directory: '/client'
     schedule:
       interval: 'daily'
+  - package-ecosystem: 'npm'
+    directory: '/landing'
+    schedule:
+      interval: 'daily'
   - package-ecosystem: 'cargo'
     directory: '/cli'
     schedule:

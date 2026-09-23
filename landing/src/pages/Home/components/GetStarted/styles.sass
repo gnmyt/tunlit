@@ -1,0 +1,35 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.get-started
+  display: grid
+  grid-template-columns: 1fr 1.25fr
+  gap: 2.5rem
+  align-items: center
+  padding: 2.5rem
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 1rem
+
+  .code-block
+    background-color: colors.$background
+
+  @media (max-width: breakpoints.$tablet)
+    grid-template-columns: 1fr
+    gap: 1.75rem
+    padding: 1.5rem
+
+.get-started-text
+  h2
+    font-size: 1.75rem
+
+  p
+    margin-top: 0.75rem
+    color: colors.$subtext
+    font-size: 0.9375rem
+    line-height: 1.6
+
+.get-started-actions
+  display: flex
+  gap: 0.5rem
+  margin-top: 1.5rem

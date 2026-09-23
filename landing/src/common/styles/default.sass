@@ -1,0 +1,84 @@
+@use "colors"
+@use "breakpoints"
+
+*
+  box-sizing: border-box
+
+ul, ol
+  margin: 0
+  padding: 0
+  list-style: none
+
+body, html
+  margin: 0
+  background-color: colors.$background
+  color: colors.$text
+  font-family: "Plus Jakarta Sans", sans-serif
+  font-weight: 500
+  line-height: 1.5
+  -webkit-font-smoothing: antialiased
+
+h1, h2, h3
+  letter-spacing: -0.025em
+  font-weight: 600
+  margin: 0
+
+p
+  margin: 0
+
+a
+  color: inherit
+  text-decoration: none
+
+code, pre
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
+
+::selection
+  background-color: colors.$primary-tint
+  color: colors.$text
+
+::-webkit-scrollbar
+  width: 10px
+
+::-webkit-scrollbar-track
+  background: transparent
+
+::-webkit-scrollbar-thumb
+  background: colors.$border-strong
+  border-radius: 10px
+
+  &:hover
+    background: colors.$subtext
+
+.container
+  width: 100%
+  max-width: 68rem
+  margin: 0 auto
+  padding: 0 2rem
+
+  @media (max-width: breakpoints.$mobile)
+    padding: 0 1rem
+
+.section
+  padding: 5rem 0
+
+  @media (max-width: breakpoints.$mobile)
+    padding: 3.5rem 0
+
+.section-head
+  max-width: 34rem
+  margin-bottom: 2.5rem
+
+  h2
+    font-size: 2rem
+    line-height: 1.15
+
+  p
+    margin-top: 0.75rem
+    color: colors.$subtext
+    font-size: 1rem
+    line-height: 1.6
+
+  @media (max-width: breakpoints.$mobile)
+    h2
+      font-size: 1.625rem

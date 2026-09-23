@@ -1,0 +1,54 @@
+@use "@/common/styles/colors"
+
+.code-block
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 0.75rem
+  overflow: hidden
+  text-align: left
+
+.code-block-head
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 0.5rem
+  padding: 0.375rem 0.375rem 0.375rem 0.875rem
+  border-bottom: 1px solid colors.$border
+  color: colors.$muted
+  font-size: 0.75rem
+  font-weight: 500
+
+  button
+    display: flex
+    align-items: center
+    justify-content: center
+    width: 1.75rem
+    height: 1.75rem
+    background: none
+    border: none
+    border-radius: 0.4rem
+    color: colors.$muted
+    cursor: pointer
+    transition: background-color 0.15s ease, color 0.15s ease
+
+    svg
+      width: 0.9375rem
+      height: 0.9375rem
+
+    &:hover
+      background-color: colors.$surface-hover
+      color: colors.$text
+
+    &.copied
+      color: colors.$success
+
+.code-block pre
+  margin: 0
+  padding: 0.875rem 1rem
+  overflow-x: auto
+  font-size: 0.8125rem
+  line-height: 1.65
+  color: colors.$subtext
+
+  code
+    white-space: pre

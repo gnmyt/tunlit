@@ -1,0 +1,117 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.nav
+  position: sticky
+  top: 0
+  z-index: 40
+  border-bottom: 1px solid colors.$border
+  background-color: colors.$background
+
+.nav-inner
+  max-width: 68rem
+  margin: 0 auto
+  height: 3.5rem
+  padding: 0 2rem
+  display: flex
+  align-items: center
+  gap: 2rem
+
+  @media (max-width: breakpoints.$mobile)
+    padding: 0 1rem
+    gap: 1rem
+
+.nav-brand
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  flex-shrink: 0
+
+  span
+    font-size: 1rem
+    font-weight: 700
+    letter-spacing: -0.02em
+
+.nav-links
+  display: flex
+  align-items: center
+  gap: 0.25rem
+  flex: 1
+
+  @media (max-width: breakpoints.$mobile)
+    display: none
+
+.nav-link
+  display: flex
+  align-items: center
+  gap: 0.25rem
+  padding: 0.375rem 0.75rem
+  border-radius: 0.625rem
+  color: colors.$muted
+  font-size: 0.875rem
+  font-weight: 500
+  transition: color 0.15s ease, background-color 0.15s ease
+
+  svg
+    width: 0.875rem
+    height: 0.875rem
+
+  &:hover
+    color: colors.$text
+
+  &.active
+    color: colors.$text
+    background-color: colors.$surface-hover
+
+.nav-github
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  margin-left: auto
+  padding: 0.375rem 0.75rem
+  border: 1px solid colors.$border-strong
+  border-radius: 0.625rem
+  color: colors.$text
+  font-size: 0.8125rem
+  font-weight: 500
+  transition: background-color 0.15s ease
+
+  &:hover
+    background-color: colors.$surface-hover
+
+  @media (max-width: breakpoints.$mobile)
+    span
+      display: none
+
+.nav-toggle
+  display: none
+  align-items: center
+  justify-content: center
+  width: 2.125rem
+  height: 2.125rem
+  background: none
+  border: none
+  border-radius: 0.625rem
+  color: colors.$subtext
+  cursor: pointer
+
+  svg
+    width: 1.125rem
+    height: 1.125rem
+
+  &:hover
+    background-color: colors.$surface-hover
+    color: colors.$text
+
+  @media (max-width: breakpoints.$mobile)
+    display: flex
+
+.nav-mobile
+  display: flex
+  flex-direction: column
+  gap: 0.125rem
+  padding: 0.5rem 1rem 0.75rem
+  border-top: 1px solid colors.$border
+
+  .nav-link
+    padding: 0.625rem 0.75rem
