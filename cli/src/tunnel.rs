@@ -204,13 +204,13 @@ pub fn server_hello(role: &str, token: Option<&str>) -> serde_json::Value {
 
 struct Registration { online: Online, resume_token: String }
 
-async fn register(url: &str, token: &str, accept_invalid_certs: bool, opts: &Options, target: &Target, resume: Option<&str>) -> Result<(Arc<Mux>, MuxEvents, Registration)> {
+async fn register(url: &str, token: &str, accept_invalid_certs: bool, opts: &Options, target: &Target, resume: Option<&str>, share: Option<&str>) -> Result<(Arc<Mux>, MuxEvents, Registration)> {
     let (mux, mut events) = Mux::connect(url, Some(token), accept_invalid_certs).await?;
     mux.send_control(server_hello("owner", Some(token))).await?;
     expect(&mut events, "hello").await?;
     let mut message = json!({
         "type": "register", "mode": opts.mode, "target": target.authority(),
-        "name": opts.name, "keepHost": opts.keep_host, "resume": resume,
+        "name": opts.name, "keepHost": opts.keep_host, "resume": resume, "share": share,
     });
     if let Some(policy) = opts.access.as_json() {
         message["policy"] = policy;
@@ -319,7 +319,7 @@ pub async fn run(opts: Options, target: Target, out: Events<TunnelEvent>, mut st
 
     let _ = out.send(TunnelEvent::Connecting);
     let first = tokio::select! {
-        result = register(&url, &token, cfg.accept_invalid_certs, &opts, &target, None) => result,
+        result = register(&url, &token, cfg.accept_invalid_certs, &opts, &target, None, None) => result,
         _ = stop.wait() => return Ok(()),
     };
     let (mut mux, mut events, mut reg) = first?;
@@ -353,7 +353,7 @@ pub async fn run(opts: Options, target: Target, out: Events<TunnelEvent>, mut st
                 _ = stop.wait() => { let _ = out.send(TunnelEvent::Stopped); return Ok(()); }
             }
             let attempt = tokio::select! {
-                result = register(&url, &token, cfg.accept_invalid_certs, &opts, &target, Some(&reg.resume_token)) => result,
+                result = register(&url, &token, cfg.accept_invalid_certs, &opts, &target, Some(&reg.resume_token), reg.online.share_code.as_deref()) => result,
                 _ = stop.wait() => { let _ = out.send(TunnelEvent::Stopped); return Ok(()); }
             };
             match attempt {

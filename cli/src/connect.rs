@@ -124,7 +124,7 @@ pub fn resolve(target: &str, server: Option<&str>) -> Result<(String, String, St
     Ok((code, tunnel_id, server_url))
 }
 
-fn is_fatal(text: &str) -> bool { text.contains("(invalid_code)") || text.contains("(not_found)") }
+const INVALID_RETRIES: u32 = 6;
 
 pub async fn run(opts: Options, out: Events<JoinEvent>, mut stop: Stop) -> Result<()> {
     let (code, tunnel_id, server_url) = resolve(&opts.target, opts.server.as_deref())?;
@@ -177,6 +177,7 @@ pub async fn run(opts: Options, out: Events<JoinEvent>, mut stop: Stop) -> Resul
         *current.lock().unwrap() = None;
 
         let mut reason = None;
+        let mut invalid = 0;
         loop {
             let _ = out.send(JoinEvent::Reconnecting { seconds: backoff, reason: reason.take() });
             tokio::select! {
@@ -197,7 +198,8 @@ pub async fn run(opts: Options, out: Events<JoinEvent>, mut stop: Stop) -> Resul
                 }
                 Err(err) => {
                     let text = err.to_string();
-                    if is_fatal(&text) { bail!("{text}"); }
+                    if text.contains("(invalid_code)") { invalid += 1; }
+                    if text.contains("(not_found)") || invalid > INVALID_RETRIES { bail!("{text}"); }
                     backoff = (backoff * 2).min(30);
                     reason = Some(text);
                 }

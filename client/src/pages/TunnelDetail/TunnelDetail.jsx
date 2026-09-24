@@ -1,5 +1,5 @@
 import "./styles.sass";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Button from "@/common/components/Button";
 import CopyField from "@/common/components/CopyField";
@@ -38,19 +38,24 @@ export const TunnelDetail = () => {
     const [disconnecting, setDisconnecting] = useState(null);
     const [view, setView] = useState("traffic");
     const [focus, setFocus] = useState("");
+    const tunnelRef = useRef(null);
 
     const load = useCallback(async () => {
         try {
-            setData(await getRequest(`tunnels/${id}`));
+            const response = await getRequest(`tunnels/${id}`);
+            tunnelRef.current = response.tunnel;
+            setData(response);
             setNow(Date.now());
         } catch (error) {
             if (error.code === 401) return;
             if (error.code !== 404) return sendToast("Error", "Could not load the tunnel");
+            tunnelRef.current = null;
             setData(null);
         }
     }, [id, sendToast]);
 
     const loadDefinition = useCallback(async () => {
+        if (tunnelRef.current && !tunnelRef.current.persistent) return setDefinition(null);
         try {
             setDefinition((await getRequest(`persistent/${id}`)).tunnel);
         } catch (error) {
@@ -59,7 +64,11 @@ export const TunnelDetail = () => {
     }, [id]);
 
     useEffect(() => {
-        const refresh = () => Promise.all([load(), loadDefinition()]).then(() => setChecked(true));
+        const refresh = async () => {
+            await load();
+            await loadDefinition();
+            setChecked(true);
+        };
         refresh();
         const poll = setInterval(refresh, POLL_INTERVAL);
         const tick = setInterval(() => setNow(Date.now()), 1000);

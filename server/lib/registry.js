@@ -86,7 +86,7 @@ class Registry extends EventEmitter {
         throw Object.assign(new Error("Could not allocate a tunnel id"), { code: "bad_request" });
     }
 
-    async register(session, { mode, target, name, keepHost, resume, policy }) {
+    async register(session, { mode, target, name, keepHost, resume, policy, share }) {
         if (!["http", "tcp"].includes(mode)) throw Object.assign(new Error("mode must be http or tcp"), { code: "bad_request" });
 
         mode = mode === "http" ? this.config.httpMode : "tcp";
@@ -112,8 +112,14 @@ class Registry extends EventEmitter {
         await this.quotas.enforce(account.id, "tunnels", owned);
         await this.quotas.enforceTraffic(account.id);
 
-        const { id, definition } = await this._allocateId(name, account);
+        const previous = mode === "tcp" ? ids.splitShareCode(share) : null;
+        const wanted = name || (previous && !this.tunnels.has(previous.id) ? previous.id : undefined);
+        const { id, definition } = await this._allocateId(wanted, account);
         const tunnel = new Tunnel({ id, mode, target: parsedTarget, keepHost, accountId: account.id, owner: account.username });
+        if (previous && previous.id === id) {
+            tunnel.secret = previous.secret;
+            tunnel.secretHash = ids.hashSecret(previous.secret);
+        }
 
         if (definition) {
             tunnel.persistent = true;

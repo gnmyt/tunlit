@@ -1,5 +1,5 @@
 const names = new Intl.DisplayNames(["en"], { type: "region" });
-const flags = import.meta.glob("/node_modules/flag-icons/flags/4x3/*.svg", { query: "?url" });
+const flags = import.meta.glob("/node_modules/flag-icons/flags/4x3/*.svg", { eager: true, import: "default", query: "?url" });
 
 export const countryName = code => {
     try {

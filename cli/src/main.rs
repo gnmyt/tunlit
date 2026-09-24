@@ -139,7 +139,7 @@ enum ConfigAction {
 
 fn main() {
     let cli = Cli::parse();
-    let runtime = tokio::runtime::Runtime::new().unwrap_or_else(|err| fail(err.into()));
+    let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(4).enable_all().build().unwrap_or_else(|err| fail(err.into()));
 
     #[cfg(feature = "gui")]
     if let Commands::Gui { link } = cli.command {
