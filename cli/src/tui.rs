@@ -5,7 +5,7 @@ use futures_util::StreamExt;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Cell, Padding, Paragraph, Row, Sparkline, Table, TableState};
+use ratatui::widgets::{Block, BorderType, Borders, Cell, Padding, Paragraph, Row, Sparkline, Table, TableState, Wrap};
 use ratatui::Frame;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -190,7 +190,7 @@ fn header(state: &State, area: Rect, frame: &mut Frame) {
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
-fn tunnel_panel(state: &State, area: Rect, frame: &mut Frame) {
+fn tunnel_lines(state: &State) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
     match &state.online {
         Some(online) => {
@@ -214,7 +214,16 @@ fn tunnel_panel(state: &State, area: Rect, frame: &mut Frame) {
     lines.push(field("Account", plain(format!("{} · {}", state.ctx.account, state.ctx.server_url))));
     if let Some(access) = &state.access { lines.push(field("Access", Span::styled(access.clone(), Style::default().fg(AMBER)))); }
     if let Some(network) = &state.ctx.network { lines.push(field("Network", Span::styled(network.clone(), Style::default().fg(AMBER)))); }
-    frame.render_widget(Paragraph::new(lines).block(panel("Tunnel")), area);
+    lines
+}
+
+fn tunnel_height(lines: &[Line], width: u16) -> u16 {
+    let inner = width.saturating_sub(4).max(1) as usize;
+    lines.iter().map(|line| line.width().max(1).div_ceil(inner) as u16).sum::<u16>() + 2
+}
+
+fn tunnel_panel(lines: Vec<Line<'static>>, area: Rect, frame: &mut Frame) {
+    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }).block(panel("Tunnel")), area);
 }
 
 fn stat(label: &str, value: String) -> Line<'static> {
@@ -330,18 +339,22 @@ fn footer(state: &State, area: Rect, frame: &mut Frame) {
 
 fn draw(frame: &mut Frame, state: &mut State) {
     let area = frame.area();
+    let wide = area.width >= 100;
+    let lines = tunnel_lines(state);
+    let panel_width = if wide { area.width.saturating_sub(2) * 58 / 100 } else { area.width.saturating_sub(2) };
+    let top_height = tunnel_height(&lines, panel_width).max(8);
     let outer = Layout::default().direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Length(1), Constraint::Length(8), Constraint::Min(5), Constraint::Length(1)])
+        .constraints([Constraint::Length(1), Constraint::Length(1), Constraint::Length(top_height), Constraint::Min(5), Constraint::Length(1)])
         .horizontal_margin(1)
         .split(area);
     header(state, outer[0], frame);
-    if area.width >= 100 {
+    if wide {
         let top = Layout::default().direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(58), Constraint::Percentage(42)]).split(outer[2]);
-        tunnel_panel(state, top[0], frame);
+        tunnel_panel(lines, top[0], frame);
         stats_panel(state, top[1], frame);
     } else {
-        tunnel_panel(state, outer[2], frame);
+        tunnel_panel(lines, outer[2], frame);
     }
     table(state, outer[3], frame);
     footer(state, outer[4], frame);
