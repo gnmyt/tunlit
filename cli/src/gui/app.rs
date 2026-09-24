@@ -392,6 +392,7 @@ pub struct Window<'a> {
     pub logo: TextureHandle,
     qr: HashMap<u64, (String, TextureHandle)>,
     visible: bool,
+    focused: bool,
     needs_show: bool,
     place_frames: u8,
 }
@@ -401,7 +402,7 @@ impl<'a> Window<'a> {
         let logo = cc.egui_ctx.load_texture("logo",
             egui::ColorImage::from_rgba_unmultiplied([super::ICON_SIZE as usize; 2], super::ICON_RGBA), TextureOptions::LINEAR);
         let hidden_at_start = state.corner_position().is_none() && !hide_by_closing();
-        Self { state, wake, logo, qr: HashMap::new(), visible: !hidden_at_start, needs_show: hidden_at_start, place_frames: 3 }
+        Self { state, wake, logo, qr: HashMap::new(), visible: !hidden_at_start, focused: false, needs_show: hidden_at_start, place_frames: 3 }
     }
 
     pub fn qr_for(&mut self, ctx: &egui::Context, card_id: u64, link: &str) -> Option<TextureHandle> {
@@ -452,7 +453,7 @@ impl<'a> Window<'a> {
     fn wake_events(&mut self, ctx: &egui::Context) {
         while let Ok(wake) = self.wake.try_recv() {
             match wake {
-                Wake::Toggle => if self.visible { self.minimize(ctx) } else { self.show(ctx) },
+                Wake::Toggle => if self.visible && self.focused { self.minimize(ctx) } else { self.show(ctx) },
                 Wake::Show => self.show(ctx),
                 Wake::OpenLink(link) => { if let Some(link) = link { self.state.open_link(link); } self.show(ctx); }
                 Wake::Quit => self.quit(ctx),
@@ -555,6 +556,7 @@ pub fn qr_texture(ctx: &egui::Context, name: &str, text: &str) -> Option<Texture
 
 impl eframe::App for Window<'_> {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.focused = ctx.input(|input| input.viewport().focused.unwrap_or(false));
         self.wake_events(ctx);
         self.state.drain(ctx);
     }
