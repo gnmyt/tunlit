@@ -186,18 +186,10 @@
   white-space: pre-wrap
   word-break: break-all
 
-.panel-card .request-body, .panel-card .request-body-empty, .panel-card .request-body-note
+.panel-card .request-body-empty, .panel-card .request-body-note
   margin: 0
   padding: 0.75rem 1rem
   border-top: 1px solid colors.$border
-
-.request-body
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
-  font-size: 0.75rem
-  line-height: 1.6
-  white-space: pre-wrap
-  word-break: break-all
-  overflow-x: auto
 
 .request-body-empty, .request-body-note
   color: colors.$muted
@@ -261,27 +253,6 @@
   display: flex
   flex-direction: column
   gap: 0.5rem
-
-  label
-    color: colors.$muted
-    font-size: 0.75rem
-    font-weight: 500
-
-  textarea
-    width: 100%
-    padding: 0.5rem 0.625rem
-    background-color: colors.$surface
-    border: 1px solid colors.$border
-    border-radius: 0.625rem
-    color: colors.$text
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
-    font-size: 0.75rem
-    line-height: 1.5
-    resize: vertical
-
-    &:focus
-      outline: none
-      border-color: colors.$primary
 
 .request-edit-line
   display: grid

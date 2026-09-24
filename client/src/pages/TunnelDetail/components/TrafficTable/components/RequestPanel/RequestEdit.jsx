@@ -1,6 +1,8 @@
 import { useState } from "react";
 import Button from "@/common/components/Button";
 import Input from "@/common/components/Input";
+import CodeEditor from "@/common/components/CodeEditor";
+import { languageFor } from "@/common/components/CodeEditor/detect.js";
 import { Play, Send } from "lucide-react";
 import { decode } from "./body.js";
 
@@ -8,6 +10,8 @@ const parseHeaders = text => text.split("\n").map(line => line.trim()).filter(Bo
     const index = line.indexOf(":");
     return index === -1 ? [line, ""] : [line.slice(0, index).trim(), line.slice(index + 1).trim()];
 });
+
+const contentType = headers => parseHeaders(headers).find(([name]) => name.toLowerCase() === "content-type")?.[1] || "";
 
 export const RequestEdit = ({ entry, detail, onSend, onCancel, busy, held, part }) => {
     const source = detail[part];
@@ -35,12 +39,10 @@ export const RequestEdit = ({ entry, detail, onSend, onCancel, busy, held, part 
                     <Input id="replay-method" value={method} setValue={value => setMethod(value.toUpperCase())} required />
                     <Input id="replay-path" value={path} setValue={setPath} required />
                 </div>}
-            <label htmlFor="replay-headers">Headers</label>
-            <textarea id="replay-headers" value={headers} onChange={event => setHeaders(event.target.value)} rows={5} spellCheck={false} />
-            <label htmlFor="replay-body">Body</label>
+            <CodeEditor label="Headers" language="headers" value={headers} onChange={setHeaders} maxHeight="14rem" />
             {binary
                 ? <p className="request-body-note">Binary body, sent as is.</p>
-                : <textarea id="replay-body" value={body} onChange={event => setBody(event.target.value)} rows={8} spellCheck={false} />}
+                : <CodeEditor label="Body" language={languageFor(contentType(headers))} value={body} onChange={setBody} />}
             <div className="request-edit-actions">
                 <Button type="ghost" text="Cancel" buttonType="button" onClick={onCancel} />
                 <Button icon={held ? Play : Send} text={busy ? "Sending..." : held ? "Continue" : "Send"} buttonType="submit" disabled={busy} />
