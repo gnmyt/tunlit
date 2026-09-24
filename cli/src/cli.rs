@@ -126,6 +126,7 @@ pub async fn tunnel(opts: Options) -> Result<()> {
             print_ready(&online, &label, &server_url, &shape);
         }
         TunnelEvent::Request(request) => print_request(&request),
+        TunnelEvent::Connection(connection) => println!("{}", style(connection.line()).dim()),
         TunnelEvent::Access(summary) => println!("{} {}", style("Access:").dim(), style(summary).yellow()),
         TunnelEvent::Reconnecting { seconds, reason } => printer.reconnecting(seconds, reason),
         TunnelEvent::Stopped => { printer.idle(); println!("\n{} Tunnel closed", ok()); }

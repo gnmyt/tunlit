@@ -114,6 +114,7 @@ async fn print(name: String, mut rx: UnboundedReceiver<TunnelEvent>) {
                 let intel = request.intel().map(|text| format!("  {text}")).unwrap_or_default();
                 log(&name, format!("{} {} {} {}ms{intel}", request.method, request.status, request.path, request.duration));
             }
+            TunnelEvent::Connection(connection) => log(&name, connection.line()),
             TunnelEvent::Access(summary) => log(&name, format!("access: {summary}")),
             TunnelEvent::Reconnecting { seconds, reason } => match reason {
                 Some(reason) => log(&name, format!("reconnecting in {seconds}s ({reason})")),

@@ -9,7 +9,7 @@ const packageJson = require("../../package.json");
 const PROTOCOL_VERSION = 1;
 const HANDSHAKE_TIMEOUT = 15_000;
 
-const createControlServer = ({ config, auth, registry }) => {
+const createControlServer = ({ config, auth, registry, connections, intel, visitors }) => {
     const wss = new WebSocketServer({ noServer: true, perMessageDeflate: false, maxPayload: 1024 * 1024 });
 
     const fail = (session, code, message, wsCode = 4000) => {
@@ -76,7 +76,7 @@ const createControlServer = ({ config, auth, registry }) => {
                     if (message.type !== "join") return fail(session, "bad_request", "expected join");
                     const tunnel = registry.join(session, message.code);
                     state = "ready";
-                    attachJoiner(tunnel, session);
+                    attachJoiner(tunnel, session, { connections, intel, visitors });
                     session.sendControl({ type: "joined", id: tunnel.id, port: tunnel.target.port, online: tunnel.online });
                     logger.info(`Joiner attached to ${tunnel.id}`, { from: req.socket.remoteAddress });
                 }

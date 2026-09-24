@@ -10,7 +10,7 @@ use crate::config::Config;
 use crate::mux::{expect, Mux, MuxEvents, OpenMeta};
 use crate::router::{self, Route, RouteTarget};
 use crate::serve;
-use crate::session::{Events, Online, Request, Stop, TunnelEvent};
+use crate::session::{Connection, Events, Online, Request, Stop, TunnelEvent};
 use crate::shape::Shape;
 use crate::tcp::{pump_tcp, pump_udp_owner};
 
@@ -254,6 +254,7 @@ async fn serve_streams(events: &mut MuxEvents, target: &Target, shape: &Shape, o
                     Some("error") => return Ended::Error(msg.get("message").and_then(|m| m.as_str()).unwrap_or("unknown error").to_string()),
                     Some("bye") => return Ended::ByServer(msg.get("reason").and_then(|r| r.as_str()).unwrap_or("closed by the server").to_string()),
                     Some("request") => { let _ = out.send(TunnelEvent::Request(Request::from_control(&msg))); }
+                    Some("connection") => { let _ = out.send(TunnelEvent::Connection(Connection::from_control(&msg))); }
                     Some("access") => { let _ = out.send(TunnelEvent::Access(msg.get("access").and_then(|v| v.as_str()).unwrap_or("open to anyone").to_string())); }
                     _ => {}
                 },

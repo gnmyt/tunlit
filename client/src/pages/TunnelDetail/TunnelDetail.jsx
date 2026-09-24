@@ -11,7 +11,7 @@ import { useToast } from "@/common/contexts/toast.js";
 import { formatCountdown, formatRelative } from "@/common/utils/formatUtils.js";
 import TrafficTable from "./components/TrafficTable";
 import VisitorsTable from "./components/VisitorsTable";
-import ClientList from "./components/ClientList";
+import ConnectionsTable from "./components/ConnectionsTable";
 import AccessSection from "./components/AccessSection";
 import DomainsSection from "./components/DomainsSection";
 import StatsPanel from "./components/StatsPanel";
@@ -204,9 +204,9 @@ export const TunnelDetail = () => {
                                  onInspect={isHttp ? ip => { setFocus(ip); setView("traffic"); } : null} />
                 : isHttp
                     ? <TrafficTable id={tunnel.id} heading={heading} focus={focus} />
-                    : <ClientList clients={tunnel.clients} port={tunnel.target.split(":").pop()} heading={heading}
-                                  onDisconnect={client => setDisconnecting(client)}
-                                  onDisconnectAll={() => setDisconnecting("all")} />)}
+                    : <ConnectionsTable tunnel={tunnel} heading={heading}
+                                        onDisconnect={client => setDisconnecting(client)}
+                                        onDisconnectAll={() => setDisconnecting("all")} />)}
         </div>
     );
 };

@@ -55,6 +55,30 @@ app.delete("/:id/visitors", async (req, res) => {
     res.json({ message: "Visitors cleared" });
 });
 
+app.get("/:id/connections", async (req, res) => {
+    const id = req.params.id.toLowerCase();
+    if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
+    const options = { sort: req.query.get("sort") || "started", order: req.query.get("order") || "desc", offset: Number(req.query.get("offset")) || 0, limit: Number(req.query.get("limit")) || undefined };
+    const connections = await req.connections.list(id, options);
+    const total = await req.connections.count(id);
+    res.json({ connections, total, now: Date.now() });
+});
+
+app.get("/:id/connections/:key", async (req, res) => {
+    const id = req.params.id.toLowerCase();
+    if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
+    const connection = await req.connections.get(id, req.params.key);
+    if (!connection) return res.status(404).json({ error: "not_found", message: "Connection not found" });
+    res.json({ connection, now: Date.now() });
+});
+
+app.delete("/:id/connections", async (req, res) => {
+    const id = req.params.id.toLowerCase();
+    if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
+    await req.connections.clear(id);
+    res.json({ message: "Connections cleared" });
+});
+
 app.delete("/:id/requests", async (req, res) => {
     const id = req.params.id.toLowerCase();
     if (!mayTouch(req.registry.get(id), req.session)) return res.status(404).json({ error: "not_found", message: "Tunnel not found" });

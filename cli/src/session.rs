@@ -35,6 +35,71 @@ impl Request {
     }
 }
 
+pub struct Connection {
+    pub opened: bool,
+    pub protocol: String,
+    pub ip: String,
+    pub country: Option<String>,
+    pub org: Option<String>,
+    pub bytes_in: u64,
+    pub bytes_out: u64,
+    pub duration: u64,
+    pub reason: Option<String>,
+    pub detail: Option<String>,
+}
+
+impl Connection {
+    pub fn from_control(message: &serde_json::Value) -> Self {
+        let text = |key: &str| message.get(key).and_then(|value| value.as_str()).map(String::from);
+        let number = |key: &str| message.get(key).and_then(|value| value.as_u64()).unwrap_or(0);
+        let detail = message.get("detail").filter(|value| !value.is_null()).map(|value| {
+            let name = value.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            match value.get("info").and_then(|v| v.as_str()) { Some(info) => format!("{name} {info}"), None => name.to_string() }
+        });
+        Self {
+            opened: message.get("event").and_then(|value| value.as_str()) == Some("open"),
+            protocol: text("protocol").unwrap_or_default().to_uppercase(),
+            ip: text("ip").unwrap_or_default(),
+            country: text("country"),
+            org: text("org"),
+            bytes_in: number("bytesIn"),
+            bytes_out: number("bytesOut"),
+            duration: number("duration"),
+            reason: text("reason"),
+            detail,
+        }
+    }
+
+    pub fn intel(&self) -> Option<String> {
+        let parts: Vec<&str> = self.country.iter().chain(self.org.iter()).map(String::as_str).collect();
+        if parts.is_empty() { None } else { Some(parts.join(" · ")) }
+    }
+
+    pub fn line(&self) -> String {
+        let mut parts = vec![format!("{:<4}", self.protocol), if self.opened { "open  ".to_string() } else { "closed".to_string() }, self.ip.clone()];
+        if self.opened {
+            if let Some(detail) = &self.detail { parts.push(detail.clone()); }
+            if let Some(intel) = self.intel() { parts.push(intel); }
+        } else {
+            parts.push(format!("{} in, {} out, {}", bytes(self.bytes_in), bytes(self.bytes_out), seconds(self.duration)));
+            if let Some(reason) = &self.reason { parts.push(reason.clone()); }
+        }
+        parts.join("  ")
+    }
+}
+
+fn bytes(value: u64) -> String {
+    const UNITS: [&str; 4] = ["B", "kB", "MB", "GB"];
+    let mut size = value as f64;
+    let mut unit = 0;
+    while size >= 1000.0 && unit < UNITS.len() - 1 { size /= 1000.0; unit += 1; }
+    if unit == 0 { format!("{value} B") } else { format!("{size:.1} {}", UNITS[unit]) }
+}
+
+fn seconds(millis: u64) -> String {
+    if millis < 1000 { format!("{millis}ms") } else { format!("{:.1}s", millis as f64 / 1000.0) }
+}
+
 #[derive(Clone)]
 pub struct Online {
     pub id: String,
@@ -60,6 +125,7 @@ pub enum TunnelEvent {
     Resumed(Online),
     Replaced(Online),
     Request(Request),
+    Connection(Connection),
     Access(String),
     Reconnecting { seconds: u64, reason: Option<String> },
     Stopped,

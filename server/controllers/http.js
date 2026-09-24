@@ -21,7 +21,7 @@ const ACME_PREFIX = "/.well-known/acme-challenge/";
 
 const FLAGS = ["tor", "vpn", "datacenter", "blocklisted"];
 
-const createRouter = ({ config, auth, registry, traffic, visitors, breakpoints, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, control }) => {
+const createRouter = ({ config, auth, registry, traffic, visitors, breakpoints, connections, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, control }) => {
     const announce = (tunnel, entry) => {
         if (!tunnel.session || tunnel.session.closed) return;
         const { request, response, ...rest } = entry;
@@ -113,7 +113,7 @@ const createRouter = ({ config, auth, registry, traffic, visitors, breakpoints, 
 
     const handleUi = async (req, res, info, pathname) => {
         if (pathname === API_PREFIX || pathname.startsWith(`${API_PREFIX}/`)) {
-            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, visitors, breakpoints, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, onRequest, info });
+            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, visitors, breakpoints, connections, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, onRequest, info });
             if (!handled) sendJson(res, 404, { error: "not_found" });
             return;
         }

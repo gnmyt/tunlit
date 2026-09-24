@@ -356,6 +356,7 @@ impl State {
                 card.access = online.access.clone();
                 card.online = Some(online);
             }
+            TunnelEvent::Connection(_) => {}
             TunnelEvent::Access(summary) => card.access = Some(summary),
             TunnelEvent::Request(request) => {
                 card.request_count += 1;

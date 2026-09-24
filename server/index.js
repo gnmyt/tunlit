@@ -6,6 +6,7 @@ const { Registry } = require("./lib/registry");
 const { TrafficLog } = require("./lib/traffic");
 const { Visitors } = require("./lib/visitors");
 const { Breakpoints } = require("./lib/breakpoints");
+const { ConnectionLog } = require("./lib/connections");
 const { Stats } = require("./lib/stats");
 const { AccessStore } = require("./lib/access");
 const { DeviceStore } = require("./lib/devices");
@@ -44,23 +45,24 @@ const registry = new Registry(config, domains, quotas, intel);
 const traffic = new TrafficLog();
 const visitors = new Visitors();
 const breakpoints = new Breakpoints();
+const connections = new ConnectionLog();
 const frames = new FrameLog();
 const access = new AccessStore();
 const stats = new Stats(registry, quotas);
 quotas.on("exceeded", accountId => registry.closeFor(accountId, "monthly traffic limit reached"));
-registry.on("joined", (tunnel, ip, details) => visitors.seen(tunnel.id, ip, details));
 registry.on("blocked", (tunnel, ip, details, reason) => visitors.blocked(tunnel.id, ip, details, reason));
 registry.on("forget", tunnel => {
     traffic.forget(tunnel.id).catch(err => logger.warn(`Could not drop stored requests: ${err.message}`));
     visitors.forget(tunnel.id).catch(err => logger.warn(`Could not drop stored visitors: ${err.message}`));
     breakpoints.forget(tunnel.id);
+    connections.forget(tunnel.id).catch(err => logger.warn(`Could not drop stored connections: ${err.message}`));
     access.forget(tunnel.id);
     stats.forget(tunnel.id);
 });
 const sessions = new SessionStore();
 const attempts = new AttemptLimiter();
-const control = createControlServer({ config, auth, registry });
-const router = createRouter({ config, auth, registry, traffic, visitors, breakpoints, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, control });
+const control = createControlServer({ config, auth, registry, connections, intel, visitors });
+const router = createRouter({ config, auth, registry, traffic, visitors, breakpoints, connections, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, control });
 
 const SERVER_OPTIONS = { keepAliveTimeout: 65_000, requestTimeout: 0, headersTimeout: 60_000 };
 
@@ -145,6 +147,7 @@ const start = async () => {
     stats.start();
     traffic.start();
     visitors.start();
+    connections.start();
     frames.start();
     buildServers();
     let remaining = servers.length;

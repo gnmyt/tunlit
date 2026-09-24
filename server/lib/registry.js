@@ -200,7 +200,6 @@ class Registry extends EventEmitter {
             this.emit("blocked", tunnel, ip, details, reason);
             throw Object.assign(new Error("Your address is not allowed to use this tunnel"), { code: "forbidden" });
         }
-        this.emit("joined", tunnel, ip, details);
         tunnel.joiners.add(session);
         session.tunnel = tunnel;
         session.once("close", () => tunnel.joiners.delete(session));
