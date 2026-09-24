@@ -36,9 +36,9 @@ impl Window<'_> {
                     (Some(_), Some(Err(err))) => { ui.add(egui::Label::new(egui::RichText::new(format!("Not reachable: {err}")).size(12.5).color(theme::ERROR)).wrap()); }
                     (Some(_), None) => { widgets::text(ui, "Checking...", 12.5, theme::MUTED); }
                 }
-                if let Some(username) = &state.username {
+                if let Some(me) = &state.me {
                     ui.add_space(2.0);
-                    widgets::text(ui, format!("Signed in as {username}"), 12.5, theme::SUBTEXT);
+                    widgets::text(ui, format!("Signed in as {}", me.label()), 12.5, theme::SUBTEXT);
                 }
                 if state.linked() {
                     ui.add_space(10.0);

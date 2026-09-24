@@ -199,7 +199,7 @@ export const TunnelDetail = () => {
                 ? <CopyField value={tunnel.url || tunnel.shareCode} secret={!tunnel.url} />
                 : <CopyField value={`tunlit http 3000 --name ${tunnel.id}`} />}
 
-            {live?.shareCode && <div className="detail-open"><OpenInTunlit code={tunnel.shareCode} /></div>}
+            {live?.shareCode && <div className="detail-open"><OpenInTunlit href={`tunlit://connect/${encodeURIComponent(tunnel.shareCode)}?server=${encodeURIComponent(window.location.origin)}`} /></div>}
 
             <AccessSection tunnel={tunnel} onSaved={() => { load(); loadDefinition(); }}
                            endpoint={live ? `tunnels/${tunnel.id}/access` : `persistent/${tunnel.id}/access`} />

@@ -3,7 +3,7 @@ const { isSetupRequired } = require("../controllers/setup");
 
 const deviceSession = async req => {
     const device = await req.auth.deviceFor(req.auth.bearerFromHeaders(req.headers));
-    if (!device) return null;
+    if (!device || device.guest) return null;
     const account = await req.auth.accountFor(device);
     return account && { account, username: account.username, role: account.role, device: true };
 };

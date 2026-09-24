@@ -31,7 +31,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Login,
+    Login {
+        link: Option<String>,
+    },
     Logout,
     Http {
         target: String,
@@ -158,7 +160,7 @@ fn fail(err: anyhow::Error) -> ! {
 
 async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
-        Commands::Login => cli::login().await,
+        Commands::Login { link } => cli::login(link).await,
         Commands::Logout => cli::logout(),
         Commands::Http { target, name, route, keep_host, rules, password, require_login, shape, plain } =>
             cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::with_routes(&target, &route)?, name, keep_host, tunnel::Access::new(rules.parse()?, password, require_login)?).shaped(shape.parse()?), plain).await,

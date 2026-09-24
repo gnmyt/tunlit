@@ -21,6 +21,18 @@ saved to `~/.config/tunlit/config.json` (`%APPDATA%\tunlit\config.json` on Windo
 There is no shared secret: every machine holds its own token, and each one can be revoked separately under
 Settings › Devices in the web UI.
 
+### Invite links
+
+Someone without an account can tunnel through your server with an invite link, created under Settings › Devices
+in the web UI. Opening the link offers "Open in tunlit" and the command to run:
+
+```sh
+tunlit login https://tunlit.example.com/@tunlit/invite/<token>
+```
+
+After that everything works as usual. Tunnels opened this way show up under your account with the invite's label,
+and revoking the link closes them.
+
 For an unattended machine, approve it once somewhere with a browser and copy the token over:
 
 ```sh

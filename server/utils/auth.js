@@ -1,5 +1,6 @@
 const crypto = require("node:crypto");
 const accounts = require("../lib/accounts");
+const invites = require("../lib/invites");
 
 const safeEqual = (a, b) => {
     const ha = crypto.createHash("sha256").update(String(a)).digest();
@@ -8,7 +9,12 @@ const safeEqual = (a, b) => {
 };
 
 const createAuth = devices => ({
-    deviceFor: presented => devices.verify(presented),
+    deviceFor: async presented => {
+        const device = await devices.verify(presented);
+        if (device) return { accountId: device.accountId, credential: `device:${device.id}` };
+        const invite = await invites.verify(presented);
+        return invite && { accountId: invite.accountId, credential: `invite:${invite.id}`, guest: invite };
+    },
 
     accountFor: async device => {
         const account = await accounts.byId(device.accountId);

@@ -21,10 +21,11 @@ const isValidName = name => NAME_REGEX.test(name) && !RESERVED.has(name);
 const isReserved = name => RESERVED.has(name);
 
 const hashSecret = secret => crypto.createHash("sha256").update(secret).digest();
+const hashToken = token => crypto.createHash("sha256").update(String(token)).digest("hex");
 
 const splitShareCode = code => {
     if (typeof code !== "string" || !/^[a-z0-9-]+[A-Za-z0-9]{26}$/.test(code)) return null;
     return { id: code.slice(0, -SECRET_LENGTH), secret: code.slice(-SECRET_LENGTH) };
 };
 
-module.exports = { randomId, randomSecret, randomToken, isValidName, isReserved, hashSecret, splitShareCode, NAME_REGEX };
+module.exports = { randomId, randomSecret, randomToken, isValidName, isReserved, hashSecret, hashToken, splitShareCode, NAME_REGEX };

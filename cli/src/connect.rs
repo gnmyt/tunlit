@@ -79,7 +79,7 @@ fn parse_scheme(rest: &str) -> Result<(String, Option<String>)> {
     Ok((code, server))
 }
 
-fn percent_decode(value: &str) -> String {
+pub fn percent_decode(value: &str) -> String {
     let bytes = value.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -114,6 +114,7 @@ fn parse_target(target: &str) -> Result<(String, Option<String>)> {
 }
 
 pub fn resolve(target: &str, server: Option<&str>) -> Result<(String, String, String)> {
+    if crate::auth::parse_invite(target).is_some() { bail!("That is an invite link. Run `tunlit login {target}` instead"); }
     let (code, from_link) = parse_target(target)?;
     if code.is_empty() || !code.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') { bail!("The share code must be alphanumeric"); }
     if code.len() <= 26 { bail!("That share code is too short"); }

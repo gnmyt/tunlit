@@ -13,10 +13,11 @@ const endSession = (session, reason, code = 4003) => {
 };
 
 class Tunnel {
-    constructor({ id, mode, target, keepHost, accountId, owner }) {
+    constructor({ id, mode, target, keepHost, accountId, owner, guest }) {
         this.id = id;
         this.accountId = accountId || null;
         this.owner = owner || null;
+        this.guest = guest || null;
         this.mode = mode;
         this.target = target;
         this.keepHost = !!keepHost;
@@ -115,7 +116,7 @@ class Registry extends EventEmitter {
         const previous = mode === "tcp" ? ids.splitShareCode(share) : null;
         const wanted = name || (previous && !this.tunnels.has(previous.id) ? previous.id : undefined);
         const { id, definition } = await this._allocateId(wanted, account);
-        const tunnel = new Tunnel({ id, mode, target: parsedTarget, keepHost, accountId: account.id, owner: account.username });
+        const tunnel = new Tunnel({ id, mode, target: parsedTarget, keepHost, accountId: account.id, owner: account.username, guest: session.guest });
         if (previous && previous.id === id) {
             tunnel.secret = previous.secret;
             tunnel.secretHash = ids.hashSecret(previous.secret);
@@ -132,7 +133,7 @@ class Registry extends EventEmitter {
 
         this.tunnels.set(id, tunnel);
         this._attach(tunnel, session, parsedTarget, keepHost);
-        logger.info(`Tunnel ${id} registered`, { mode, target: parsedTarget.authority, owner: account.username });
+        logger.info(`Tunnel ${id} registered`, { mode, target: parsedTarget.authority, owner: account.username, guest: session.guest });
         return { tunnel, resumed: false };
     }
 
@@ -144,6 +145,7 @@ class Registry extends EventEmitter {
     }
 
     _attach(tunnel, session, target, keepHost) {
+        tunnel.credential = session.credential;
         if (tunnel.graceTimer) {
             clearTimeout(tunnel.graceTimer);
             tunnel.graceTimer = null;
@@ -190,6 +192,12 @@ class Registry extends EventEmitter {
     closeFor(accountId, reason) {
         for (const tunnel of [...this.tunnels.values()]) {
             if (tunnel.accountId === accountId) this.remove(tunnel.id, reason);
+        }
+    }
+
+    closeCredential(credential, reason) {
+        for (const tunnel of [...this.tunnels.values()]) {
+            if (tunnel.credential === credential) this.remove(tunnel.id, reason);
         }
     }
 

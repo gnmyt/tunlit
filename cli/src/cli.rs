@@ -15,9 +15,6 @@ use crate::shape::Shape;
 use crate::tui;
 use crate::tunnel::{self, Options};
 
-#[derive(serde::Deserialize)]
-struct Me { username: String }
-
 fn ok() -> console::StyledObject<&'static str> { style("✓").green().bold() }
 fn warn() -> console::StyledObject<&'static str> { style("!").yellow().bold() }
 
@@ -122,8 +119,8 @@ pub async fn tunnel(opts: Options, plain: bool) -> Result<()> {
 
     if !plain && std::io::stdout().is_terminal() {
         let api = crate::api::ApiClient::new(&server_url, Some(&token), cfg.accept_invalid_certs)?;
-        let me: Me = api.get("/auth/me").await?;
-        let ctx = tui::Context { server_url, account: me.username, target: label, network: shape.summary(), tcp: opts.mode == "tcp" };
+        let me = api.whoami().await?;
+        let ctx = tui::Context { server_url, account: me.label(), target: label, network: shape.summary(), tcp: opts.mode == "tcp" };
         let (events, rx) = session::channel();
         let (handle, stop) = Stop::new();
         let ui = tokio::spawn(tui::run(rx, handle, ctx));
@@ -238,8 +235,16 @@ pub async fn list() -> Result<()> {
     Ok(())
 }
 
-pub async fn login() -> Result<()> {
+pub async fn login(link: Option<String>) -> Result<()> {
     let cfg = Config::load()?;
+
+    if let Some(link) = link {
+        let invite = auth::parse_invite(&link).ok_or_else(|| anyhow::anyhow!("That is not an invite link. Run `tunlit login` without arguments to link with your account"))?;
+        let (me, info) = auth::accept_invite(invite, cfg.accept_invalid_certs).await?;
+        println!("{} Linked to {} as {}", ok(), style(info.name).cyan().bold(), style(me.label()).cyan());
+        println!("  Tunnels will be created under {}", style(&info.base_domain).cyan());
+        return Ok(());
+    }
 
     let server_url: String = if let Some(ref url) = cfg.server_url {
         println!("Current server: {}", style(url).cyan());

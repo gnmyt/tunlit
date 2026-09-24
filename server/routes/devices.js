@@ -25,8 +25,10 @@ app.post("/pending/:code/deny", (req, res) => {
 });
 
 app.delete("/:id", async (req, res) => {
-    const result = await req.devices.revoke(Number(req.params.id), req.session.role === "admin" ? undefined : req.account.id);
+    const id = Number(req.params.id);
+    const result = await req.devices.revoke(id, req.session.role === "admin" ? undefined : req.account.id);
     if (result.code) return res.status(result.code).json(result);
+    req.registry.closeCredential(`device:${id}`, "device revoked");
     res.json(result);
 });
 

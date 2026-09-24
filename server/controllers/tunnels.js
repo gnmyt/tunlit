@@ -22,6 +22,7 @@ const serializeTunnel = (registry, tunnel) => ({
     joiners: tunnel.joiners.size,
     createdAt: tunnel.createdAt,
     owner: tunnel.owner,
+    guest: tunnel.guest,
     access: describePolicy(tunnel.policy),
 });
 

@@ -30,6 +30,7 @@ export const TunnelItem = ({ tunnel, now }) => {
                     <span className="tunnel-id">{tunnel.id}</span>
                     {tunnel.persistent && <Bookmark className="tunnel-pin" aria-label="Persistent" />}
                     {foreign && <span className="tunnel-owner">{tunnel.owner}</span>}
+                    {tunnel.guest && <span className="tunnel-owner">via {tunnel.guest}</span>}
                 </span>
                 <span className="tunnel-detail">
                     {detail(tunnel).map((part, index) => (

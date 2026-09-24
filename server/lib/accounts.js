@@ -1,6 +1,7 @@
 const Account = require("../models/Account");
 const Session = require("../models/Session");
 const Device = require("../models/Device");
+const Invite = require("../models/Invite");
 const { hashPassword, verifyPassword } = require("../utils/password");
 
 const ABSENT = hashPassword("account-that-does-not-exist");
@@ -76,6 +77,7 @@ const remove = async id => {
 
     await Session.destroy({ where: { accountId: account.id } });
     await Device.destroy({ where: { accountId: account.id } });
+    await Invite.destroy({ where: { accountId: account.id } });
     await Account.destroy({ where: { id: account.id } });
     return { message: "Account deleted" };
 };

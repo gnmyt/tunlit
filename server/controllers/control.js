@@ -4,6 +4,7 @@ const { attachJoiner } = require("./relay");
 const { randomToken } = require("../utils/ids");
 const logger = require("../utils/logger");
 const { summarizePolicy } = require("../lib/access");
+const invites = require("../lib/invites");
 const packageJson = require("../../package.json");
 
 const PROTOCOL_VERSION = 1;
@@ -48,6 +49,11 @@ const createControlServer = ({ config, auth, registry, connections, intel, visit
                         if (!device) return fail(session, "unauthorized", "invalid token", 4401);
                         session.account = await auth.accountFor(device);
                         if (!session.account) return fail(session, "unauthorized", "the account behind this device is gone", 4401);
+                        session.credential = device.credential;
+                        if (device.guest) {
+                            session.guest = device.guest.label;
+                            await invites.used(device.guest);
+                        }
                     }
                     session.sendControl({ type: "hello", version: PROTOCOL_VERSION, server: `tunlit/${packageJson.version}`, baseDomain: config.baseDomain });
                     state = "setup";

@@ -1,15 +1,12 @@
-const crypto = require("node:crypto");
 const Device = require("../models/Device");
 const Account = require("../models/Account");
-const { randomToken } = require("../utils/ids");
+const { hashToken, randomToken } = require("../utils/ids");
 const logger = require("../utils/logger");
 
 const CODE_TTL = 10 * 60 * 1000;
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 8;
 const TOUCH_AFTER = 60_000;
-
-const hash = token => crypto.createHash("sha256").update(String(token)).digest("hex");
 
 const humanCode = () => {
     const bytes = crypto.randomBytes(CODE_LENGTH);
@@ -77,7 +74,7 @@ class DeviceStore {
         const device = await Device.create({
             accountId,
             name: String(name || "").trim() || request.client || "CLI",
-            tokenHash: hash(token),
+            tokenHash: hashToken(token),
             ip: request.ip || null,
             userAgent: request.userAgent || null,
         });
@@ -110,7 +107,7 @@ class DeviceStore {
 
     async verify(token) {
         if (typeof token !== "string" || !token) return null;
-        const device = await Device.findOne({ where: { tokenHash: hash(token) } });
+        const device = await Device.findOne({ where: { tokenHash: hashToken(token) } });
         if (!device) return null;
 
         if (!device.lastUsedAt || Date.now() - new Date(device.lastUsedAt).getTime() > TOUCH_AFTER) {

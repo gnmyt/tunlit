@@ -59,6 +59,7 @@ const createRouter = ({ config, auth, registry, traffic, visitors, breakpoints, 
     api.use(`${API_PREFIX}/quotas`, authenticate, require("../routes/quotas"));
     api.use(`${API_PREFIX}/settings`, authenticate, require("../routes/settings"));
     api.use(`${API_PREFIX}/devices`, authenticate, require("../routes/devices"));
+    api.use(`${API_PREFIX}/invites`, authenticate, require("../routes/invites"));
     api.use(`${API_PREFIX}/accounts`, authenticate, requireAdmin, require("../routes/accounts"));
     api.use(`${API_PREFIX}/tls`, authenticate, requireAdmin, require("../routes/tls"));
     api.use(`${API_PREFIX}/oidc`, authenticate, requireAdmin, require("../routes/oidc"));

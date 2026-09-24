@@ -28,6 +28,7 @@ const Select = lazy(() => import("@/pages/Select"));
 const Status = lazy(() => import("@/pages/Status"));
 const Handoff = lazy(() => import("@/pages/Handoff"));
 const Connect = lazy(() => import("@/pages/Connect"));
+const Invite = lazy(() => import("@/pages/Invite"));
 
 export const BASE_PATH = "/@tunlit";
 export const GITHUB_URL = "https://github.com/gnmyt/tunlit";
@@ -81,6 +82,7 @@ const App = () => {
                 { path: "/reattach", element: <Status kind="reattach" /> },
                 { path: "/handoff", element: <Handoff /> },
                 { path: "/connect/:code", element: <Connect /> },
+                { path: "/invite/:token", element: <Invite /> },
             ],
         },
     ], { basename: BASE_PATH });

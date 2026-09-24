@@ -5,7 +5,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use tokio::sync::mpsc::UnboundedReceiver;
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
-use crate::api::{ApiClient, ServerInfo};
+use crate::api::{ApiClient, Me, ServerInfo};
 use crate::auth::{self, LoginEvent};
 use crate::config::Config;
 use crate::connect;
@@ -32,7 +32,8 @@ pub enum Msg {
     Login(LoginEvent),
     LoginFailed(String),
     Info(Result<ServerInfo, String>),
-    Me(Option<String>),
+    Me(Option<Me>),
+    Invited(Result<String, String>),
     TunnelProbe(u64, Option<String>),
     FolderPicked(Option<PathBuf>),
 }
@@ -146,7 +147,7 @@ pub struct State {
     pub tunnels: Vec<TunnelCard>,
     pub joins: Vec<JoinCard>,
     next_id: u64,
-    pub username: Option<String>,
+    pub me: Option<Me>,
     pub start_hidden: bool,
     pub hotkey: bool,
     pub autostart: bool,
@@ -167,7 +168,7 @@ impl State {
         let mut state = Self {
             runtime, mailbox: Mailbox { tx, repaint }, rx, page: Page::Tunnels, cfg, server_info: None, tunnels: Vec::new(), joins: Vec::new(), next_id: 1,
             login, new_tunnel: NewTunnelForm::default(), connect: ConnectForm::default(),
-            username: None, start_hidden: false, hotkey: false, autostart: super::autostart::enabled(), toasts: Vec::new(), has_tray, quitting: false, monitor: None,
+            me: None, start_hidden: false, hotkey: false, autostart: super::autostart::enabled(), toasts: Vec::new(), has_tray, quitting: false, monitor: None,
         };
         state.fetch_info();
         state.fetch_me();
@@ -193,11 +194,11 @@ impl State {
     pub fn toast_error(&mut self, text: impl Into<String>) { self.toasts.push(Toast { text: text.into(), at: Instant::now(), error: true, action: None }); }
 
     pub fn fetch_me(&mut self) {
-        let (Some(url), Some(token)) = (self.cfg.server_url(), self.cfg.device_token.clone()) else { self.username = None; return };
+        let (Some(url), Some(token)) = (self.cfg.server_url(), self.cfg.device_token.clone()) else { self.me = None; return };
         let accept = self.cfg.accept_invalid_certs;
         let mailbox = self.mailbox.clone();
         self.runtime.spawn(async move {
-            let me = async { ApiClient::new(&url, Some(&token), accept)?.get::<Me>("/auth/me").await }.await.ok().map(|me| me.username);
+            let me = async { ApiClient::new(&url, Some(&token), accept)?.whoami().await }.await.ok();
             mailbox.send(Msg::Me(me));
         });
     }
@@ -214,6 +215,16 @@ impl State {
     }
 
     pub fn open_link(&mut self, link: String) {
+        if let Some(invite) = auth::parse_invite(&link) {
+            self.page = Page::Tunnels;
+            let accept = self.cfg.accept_invalid_certs;
+            let mailbox = self.mailbox.clone();
+            self.runtime.spawn(async move {
+                let result = auth::accept_invite(invite, accept).await.map(|(me, info)| format!("Linked to {} as {}", info.name, me.label())).map_err(|err| format!("{err:#}"));
+                mailbox.send(Msg::Invited(result));
+            });
+            return;
+        }
         self.page = Page::Connect;
         self.start_join(link, None, "127.0.0.1".into());
     }
@@ -361,7 +372,9 @@ impl State {
                 self.stop_tunnel(id);
                 if fresh { self.new_tunnel.error = Some(message); self.page = Page::NewTunnel; } else { self.toast_error(message); }
             }
-            Msg::Me(username) => self.username = username,
+            Msg::Me(me) => self.me = me,
+            Msg::Invited(Ok(message)) => { self.reload_config(); self.fetch_info(); self.toast(message); }
+            Msg::Invited(Err(message)) => self.toast_error(message),
             Msg::TunnelProbe(id, warning) => { if let Some(card) = self.tunnel_mut(id) { card.probe = warning; } }
             Msg::Join(id, event) => self.handle_join(id, event),
             Msg::JoinFailed(id, message, port_in_use) => self.fail_join(id, message, port_in_use),
@@ -654,9 +667,6 @@ impl eframe::App for Window<'_> {
         self.toasts(&ctx);
     }
 }
-
-#[derive(serde::Deserialize)]
-struct Me { username: String }
 
 async fn reachable(target: &Target) -> bool {
     let Ok(addrs) = target.resolve().await else { return false };

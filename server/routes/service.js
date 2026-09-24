@@ -16,7 +16,7 @@ app.get("/whoami", async (req, res) => {
     if (!device) return res.status(401).json({ error: "unauthorized" });
     const account = await req.auth.accountFor(device);
     if (!account) return res.status(401).json({ error: "unauthorized" });
-    res.json({ ok: true, role: "owner", username: account.username });
+    res.json({ ok: true, role: "owner", username: account.username, guest: device.guest?.label ?? null });
 });
 
 app.get("/status/:id", (req, res) => {

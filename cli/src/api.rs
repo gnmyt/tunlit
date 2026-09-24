@@ -62,8 +62,17 @@ impl ApiClient {
         }
     }
 
-    pub async fn whoami(&self) -> Result<()> {
-        self.get::<serde_json::Value>("/whoami").await.map(|_| ())
+    pub async fn whoami(&self) -> Result<Me> {
+        self.get("/whoami").await
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct Me { pub username: String, pub guest: Option<String> }
+
+impl Me {
+    pub fn label(&self) -> String {
+        match &self.guest { Some(guest) => format!("{guest} (guest of {})", self.username), None => self.username.clone() }
     }
 }
 

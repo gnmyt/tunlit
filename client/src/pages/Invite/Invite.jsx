@@ -1,29 +1,30 @@
-import "./styles.sass";
+import "@/pages/Connect/styles.sass";
 import { useParams } from "react-router-dom";
 import CopyField from "@/common/components/CopyField";
 import OpenInTunlit from "@/common/components/OpenInTunlit";
 
-export const Connect = () => {
-    const { code } = useParams();
-    const command = `tunlit connect ${window.location.origin}/@tunlit/connect/${code}`;
+export const Invite = () => {
+    const { token } = useParams();
+    const origin = window.location.origin;
+    const link = `${origin}/@tunlit/invite/${token}`;
 
     return (
         <div className="connect-page">
             <div className="form-head">
-                <h1>Connect to this port.</h1>
-                <p>The port appears on your own machine, as if it were running there.</p>
+                <h1>Tunnel through this server.</h1>
+                <p>This link lets you open tunnels here without an account. Keep it to yourself.</p>
             </div>
 
-            <OpenInTunlit href={`tunlit://connect/${encodeURIComponent(code)}?server=${encodeURIComponent(window.location.origin)}`} />
+            <OpenInTunlit href={`tunlit://invite/${encodeURIComponent(token)}?server=${encodeURIComponent(origin)}`} />
 
             <div className="connect-command">
                 <span>or run</span>
-                <CopyField value={command} />
+                <CopyField value={`tunlit login ${link}`} />
             </div>
 
             <p className="connect-hint">
                 No tunlit yet? <a href="https://docs.tunlit.dev/installation" target="_blank" rel="noreferrer noopener">Install it</a> in one line.
-                You do not need an account to connect.
+                Afterwards <code>tunlit http 3000</code> works as usual.
             </p>
         </div>
     );

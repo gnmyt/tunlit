@@ -8,7 +8,7 @@ import { detectPlatform, downloadsFor, installCommand } from "@/common/utils/pla
 
 const HANDOFF_TIMEOUT = 1500;
 
-export const OpenInTunlit = ({ code, server = window.location.origin }) => {
+export const OpenInTunlit = ({ href }) => {
     const [missing, setMissing] = useState(null);
     const timers = useRef([]);
 
@@ -21,7 +21,7 @@ export const OpenInTunlit = ({ code, server = window.location.origin }) => {
 
     const open = () => {
         setMissing(null);
-        window.location.href = `tunlit://connect/${encodeURIComponent(code)}?server=${encodeURIComponent(server)}`;
+        window.location.href = href;
 
         timers.current.push(setTimeout(() => {
             if (document.hasFocus()) offerInstall();

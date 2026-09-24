@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
 use std::time::Duration;
-use crate::api::{ApiClient, ServerInfo};
+use crate::api::{ApiClient, Me, ServerInfo};
+use crate::connect::percent_decode;
 use crate::config::{normalize_url, Config};
 use crate::session::{Events, Stop};
 
@@ -9,6 +10,32 @@ const POLL_INTERVAL: Duration = Duration::from_secs(2);
 pub enum LoginEvent {
     Code { code: String, handoff_url: String },
     Linked { server_url: String, info: ServerInfo },
+}
+
+pub struct Invite { pub server_url: String, pub token: String }
+
+pub fn parse_invite(link: &str) -> Option<Invite> {
+    let link = link.trim();
+    if let Some(rest) = link.strip_prefix("tunlit://invite/") {
+        let (token, query) = rest.split_once('?').unwrap_or((rest, ""));
+        let server = query.split('&').find_map(|pair| pair.strip_prefix("server=")).map(percent_decode)?;
+        return Some(Invite { server_url: normalize_url(&server), token: token.trim_matches('/').to_string() });
+    }
+    let (server, token) = link.split_once("/@tunlit/invite/")?;
+    if !server.starts_with("http://") && !server.starts_with("https://") { return None; }
+    Some(Invite { server_url: normalize_url(server), token: token.trim_matches('/').to_string() })
+}
+
+pub async fn accept_invite(invite: Invite, accept_invalid_certs: bool) -> Result<(Me, ServerInfo)> {
+    if invite.token.is_empty() { bail!("That invite link carries no token"); }
+    let client = ApiClient::new(&invite.server_url, Some(&invite.token), accept_invalid_certs)?;
+    let info = client.info().await?;
+    let me = client.whoami().await.map_err(|_| anyhow::anyhow!("That invite link is not valid any more"))?;
+    let mut cfg = Config::load()?;
+    cfg.server_url = Some(invite.server_url);
+    cfg.device_token = Some(invite.token);
+    cfg.save()?;
+    Ok((me, info))
 }
 
 pub async fn link(server_url: &str, accept_invalid_certs: bool, out: Events<LoginEvent>, mut stop: Stop) -> Result<()> {
