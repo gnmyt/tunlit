@@ -3,6 +3,7 @@ use console::style;
 use dialoguer::{Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::future::Future;
+use std::io::IsTerminal;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
 use crate::auth::{self, LoginEvent};
@@ -11,7 +12,11 @@ use crate::connect;
 use crate::qr;
 use crate::session::{self, Events, JoinEvent, Online, Request, Stop, TunnelEvent};
 use crate::shape::Shape;
+use crate::tui;
 use crate::tunnel::{self, Options};
+
+#[derive(serde::Deserialize)]
+struct Me { username: String }
 
 fn ok() -> console::StyledObject<&'static str> { style("✓").green().bold() }
 fn warn() -> console::StyledObject<&'static str> { style("!").yellow().bold() }
@@ -109,13 +114,28 @@ fn print_request(request: &Request) {
     println!("{} {} {} {}{}", label, status.bold(), style(&request.path).dim(), style(format!("{}ms", request.duration)).dim(), style(intel).dim());
 }
 
-pub async fn tunnel(opts: Options) -> Result<()> {
+pub async fn tunnel(opts: Options, plain: bool) -> Result<()> {
     let cfg = Config::load()?;
-    let (server_url, _) = cfg.require_auth()?;
+    let (server_url, token) = cfg.require_auth()?;
     let (opts, target, label) = tunnel::prepare(opts).await?;
     let shape = opts.shape.clone();
-    let (events, rx, stop) = session();
 
+    if !plain && std::io::stdout().is_terminal() {
+        let api = crate::api::ApiClient::new(&server_url, Some(&token), cfg.accept_invalid_certs)?;
+        let me: Me = api.get("/auth/me").await?;
+        let ctx = tui::Context { server_url, account: me.username, target: label, network: shape.summary(), tcp: opts.mode == "tcp" };
+        let (events, rx) = session::channel();
+        let (handle, stop) = Stop::new();
+        let ui = tokio::spawn(tui::run(rx, handle, ctx));
+        let result = tunnel::run(opts, target, events, stop).await;
+        match ui.await?? {
+            Some(reason) => println!("{} Tunnel ended: {}", warn(), style(reason).dim()),
+            None => println!("{} Tunnel closed", ok()),
+        }
+        return result;
+    }
+
+    let (events, rx, stop) = session();
     printed(rx, move |printer, event| match event {
         TunnelEvent::Connecting => printer.busy("Connecting to server...".into()),
         TunnelEvent::Online(online) => { printer.idle(); print_ready(&online, &label, &server_url, &shape); }

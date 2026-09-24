@@ -15,6 +15,7 @@ mod service;
 mod session;
 mod shape;
 mod tcp;
+mod tui;
 mod tunnel;
 
 use clap::{Parser, Subcommand};
@@ -41,6 +42,7 @@ enum Commands {
         #[arg(long, value_name = "PASSWORD")] password: Option<String>,
         #[arg(long)] require_login: bool,
         #[command(flatten)] shape: ShapeArgs,
+        #[arg(long, help = "Print plain log lines instead of the terminal UI")] plain: bool,
     },
     Serve {
         #[arg(default_value = ".")] dir: String,
@@ -49,12 +51,14 @@ enum Commands {
         #[arg(long, value_name = "PASSWORD")] password: Option<String>,
         #[arg(long)] require_login: bool,
         #[command(flatten)] shape: ShapeArgs,
+        #[arg(long, help = "Print plain log lines instead of the terminal UI")] plain: bool,
     },
     Tcp {
         target: String,
         #[arg(short, long)] name: Option<String>,
         #[command(flatten)] rules: RuleArgs,
         #[command(flatten)] shape: ShapeArgs,
+        #[arg(long, help = "Print plain log lines instead of the terminal UI")] plain: bool,
     },
     Connect {
         target: String,
@@ -155,12 +159,12 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Commands::Login => cli::login().await,
         Commands::Logout => cli::logout(),
-        Commands::Http { target, name, route, keep_host, rules, password, require_login, shape } =>
-            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::with_routes(&target, &route)?, name, keep_host, tunnel::Access::new(rules.parse()?, password, require_login)?).shaped(shape.parse()?)).await,
-        Commands::Serve { dir, name, rules, password, require_login, shape } =>
-            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::dir(&dir)?, name, false, tunnel::Access::new(rules.parse()?, password, require_login)?).shaped(shape.parse()?)).await,
-        Commands::Tcp { target, name, rules, shape } =>
-            cli::tunnel(tunnel::Options::tcp(tunnel::Target::parse(&target)?, name, tunnel::Access::new(rules.parse()?, None, false)?).shaped(shape.parse()?)).await,
+        Commands::Http { target, name, route, keep_host, rules, password, require_login, shape, plain } =>
+            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::with_routes(&target, &route)?, name, keep_host, tunnel::Access::new(rules.parse()?, password, require_login)?).shaped(shape.parse()?), plain).await,
+        Commands::Serve { dir, name, rules, password, require_login, shape, plain } =>
+            cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::dir(&dir)?, name, false, tunnel::Access::new(rules.parse()?, password, require_login)?).shaped(shape.parse()?), plain).await,
+        Commands::Tcp { target, name, rules, shape, plain } =>
+            cli::tunnel(tunnel::Options::tcp(tunnel::Target::parse(&target)?, name, tunnel::Access::new(rules.parse()?, None, false)?).shaped(shape.parse()?), plain).await,
         Commands::Connect { target, port, bind, server } => cli::connect(target, port, bind, server).await,
         Commands::Ls => cli::list().await,
         Commands::Start { config } => headless::run(config).await,

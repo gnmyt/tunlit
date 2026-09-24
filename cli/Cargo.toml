@@ -37,6 +37,9 @@ qrcode = { version = "0.14", default-features = false }
 arboard = { version = "3", default-features = false }
 eframe = { version = "0.36", optional = true }
 rfd = { version = "0.17", optional = true, default-features = false, features = ["xdg-portal"] }
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", optional = true, features = ["Win32_System_Console", "Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }

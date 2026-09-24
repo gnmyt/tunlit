@@ -8,5 +8,14 @@ pub fn print(text: &str) {
 }
 
 pub fn copy(text: &str) -> bool {
-    arboard::Clipboard::new().and_then(|mut clip| clip.set_text(text.to_string())).is_ok()
+    let Ok(mut clip) = arboard::Clipboard::new() else { return false };
+    let text = text.to_string();
+    #[cfg(target_os = "linux")]
+    {
+        use arboard::SetExtLinux;
+        std::thread::spawn(move || { let _ = clip.set().wait().text(text); });
+        true
+    }
+    #[cfg(not(target_os = "linux"))]
+    clip.set_text(text).is_ok()
 }

@@ -36,6 +36,7 @@ impl Request {
 }
 
 pub struct Connection {
+    pub key: String,
     pub opened: bool,
     pub protocol: String,
     pub ip: String,
@@ -57,6 +58,7 @@ impl Connection {
             match value.get("info").and_then(|v| v.as_str()) { Some(info) => format!("{name} {info}"), None => name.to_string() }
         });
         Self {
+            key: text("key").unwrap_or_default(),
             opened: message.get("event").and_then(|value| value.as_str()) == Some("open"),
             protocol: text("protocol").unwrap_or_default().to_uppercase(),
             ip: text("ip").unwrap_or_default(),
@@ -81,14 +83,14 @@ impl Connection {
             if let Some(detail) = &self.detail { parts.push(detail.clone()); }
             if let Some(intel) = self.intel() { parts.push(intel); }
         } else {
-            parts.push(format!("{} in, {} out, {}", bytes(self.bytes_in), bytes(self.bytes_out), seconds(self.duration)));
+            parts.push(format!("{} in, {} out, {}", bytes(self.bytes_in), bytes(self.bytes_out), took(self.duration)));
             if let Some(reason) = &self.reason { parts.push(reason.clone()); }
         }
         parts.join("  ")
     }
 }
 
-fn bytes(value: u64) -> String {
+pub fn bytes(value: u64) -> String {
     const UNITS: [&str; 4] = ["B", "kB", "MB", "GB"];
     let mut size = value as f64;
     let mut unit = 0;
@@ -96,8 +98,8 @@ fn bytes(value: u64) -> String {
     if unit == 0 { format!("{value} B") } else { format!("{size:.1} {}", UNITS[unit]) }
 }
 
-fn seconds(millis: u64) -> String {
-    if millis < 1000 { format!("{millis}ms") } else { format!("{:.1}s", millis as f64 / 1000.0) }
+pub fn took(millis: u64) -> String {
+    if millis < 1000 { format!("{millis}ms") } else if millis < 60_000 { format!("{:.1}s", millis as f64 / 1000.0) } else { format!("{}m {}s", millis / 60_000, (millis % 60_000) / 1000) }
 }
 
 #[derive(Clone)]
