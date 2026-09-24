@@ -50,5 +50,7 @@ anyone a working login. The schema is created and upgraded automatically on star
 Only settings you actually change in the UI are stored; anything you leave alone keeps coming from `config.yml` or
 the environment, which is why server configuration stays reviewable in a file you can put in git.
 
+![Forwarding settings](/screenshots/settings.png)
+
 Back it up (or mount `/app/data` in Docker) to keep accounts, devices and access rules across restarts. Delete it
 to start over with the setup wizard.

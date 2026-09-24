@@ -23,14 +23,16 @@
   <a href="https://docs.tunlit.dev">Documentation</a>
 </p>
 
-<img src="docs/public/screenshots/tunnel-detail.png" alt="A tunnel with live throughput" />
+<img src="docs/public/screenshots/request-detail.png" alt="Live traffic with a request opened in the side panel" />
 
 ## What it does
 
 - **HTTP tunnels** with a public URL, either `https://<id>.example.com` or `https://example.com/@<id>`
 - **TCP and UDP tunnels** for anything that is not HTTP, like a database or a game server
 - **Share a port** with someone who has no account: they get a link, the port appears on their machine
-- **Live traffic** per tunnel, with request and response bodies you can read and replay in the browser
+- **Live traffic** per tunnel, with request and response bodies you can read, edit and replay in the browser
+- **Breakpoints** that hold a request or response until you continue, edit or drop it
+- **Visitors** grouped by address with country, network, request and blocked counts
 - **IP intelligence** for every visitor: country, network, Tor, VPN and datacenter flags, all looked up offline
 - **Bad network on demand**: add latency, jitter, a bandwidth cap or packet loss to any tunnel to see how your app copes
 - **Persistent names** that stay yours, with your own domains on top
@@ -79,9 +81,9 @@ tunlit tcp 5432              # share a database, or anything else that is not HT
 
 <img src="docs/public/screenshots/tunnels.png" alt="The tunnel list" />
 
-Every request is listed while it happens, and you can open one to read the headers and the body.
+Each tunnel has its access rules and live throughput on one page.
 
-<img src="docs/public/screenshots/request-detail.png" alt="A single request with its headers and JSON response" />
+<img src="docs/public/screenshots/tunnel-detail.png" alt="A tunnel with its access rules and live throughput" />
 
 A `tunlit tcp` tunnel gets a share code. Whoever you send it to opens the link and gets the port on their own
 machine, without an account.

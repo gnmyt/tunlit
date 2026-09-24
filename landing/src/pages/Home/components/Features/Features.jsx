@@ -1,15 +1,15 @@
 import "./styles.sass";
-import RequestDetail from "@/common/assets/request-detail.png";
-import Connect from "@/common/assets/connect.png";
 import Tunnels from "@/common/assets/tunnels.png";
+import Connect from "@/common/assets/connect.png";
+import TunnelDetail from "@/common/assets/tunnel-detail.png";
 
 const features = [
     {
-        title: "See every request.",
-        text: "Traffic is listed while it happens. Open a request to read its headers and body, and the response that went back.",
-        points: ["Method, path, status and duration", "Request and response bodies", "Live throughput per tunnel"],
-        image: RequestDetail,
-        alt: "A single request with its headers and JSON response",
+        title: "Every tunnel on one page.",
+        text: "Start one from the CLI and it shows up here with its address, owner and age. Reserve a name to keep it.",
+        points: ["Subdomain, path and TCP tunnels", "Persistent names with your own domains", "Per-account quotas"],
+        image: Tunnels,
+        alt: "The tunnel list",
     },
     {
         title: "Share a port with anyone.",
@@ -20,10 +20,10 @@ const features = [
     },
     {
         title: "Decide who gets in.",
-        text: "Each tunnel can ask for a password, a tunlit account or come from an allowed IP range. Team accounts sign in with TOTP, passkeys or your OIDC provider.",
-        points: ["Password, account or IP allowlist", "TOTP, passkeys and single sign-on", "Reconnects on its own"],
-        image: Tunnels,
-        alt: "The tunnel list",
+        text: "Each tunnel can ask for a password or a tunlit account, allow only some addresses or countries, and block Tor, VPNs and datacenters. Team accounts sign in with TOTP, passkeys or your OIDC provider.",
+        points: ["Allow and block by address or country", "Tor, VPN and datacenter filters", "TOTP, passkeys and single sign-on"],
+        image: TunnelDetail,
+        alt: "A tunnel with its access rules and live throughput",
     },
 ];
 

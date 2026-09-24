@@ -4,10 +4,11 @@ import Button from "@/common/components/Button";
 import GithubMark from "@/common/components/GithubMark";
 import Modes from "@/pages/Home/components/Modes";
 import Features from "@/pages/Home/components/Features";
+import Demos from "@/pages/Home/components/Demos";
 import Highlights from "@/pages/Home/components/Highlights";
 import GetStarted from "@/pages/Home/components/GetStarted";
 import { GITHUB_URL } from "@/common/utils/links.js";
-import TunnelDetail from "@/common/assets/tunnel-detail.png";
+import RequestDetail from "@/common/assets/request-detail.png";
 
 export const Home = () => (
     <div className="home">
@@ -25,9 +26,10 @@ export const Home = () => (
                 <span className="prompt">$</span> tunlit http 3000
                 <span className="hero-terminal-out">https://k3x9ab.tunlit.example.com</span>
             </div>
-            <img className="hero-image" src={TunnelDetail} alt="A tunnel with live throughput and its recent requests" draggable={false} />
+            <img className="hero-image" src={RequestDetail} alt="Live traffic with a request opened in the side panel" draggable={false} />
         </section>
 
+        <Demos />
         <Modes />
         <Features />
         <Highlights />

@@ -24,8 +24,8 @@ const modes = [
 export const Modes = () => (
     <section className="section container">
         <div className="section-head">
-            <h2>Three ways out.</h2>
-            <p>HTTP tunnels land on a subdomain or under a path, depending on how the server is set up. Everything else goes through a share code.</p>
+            <h2>Three kinds of tunnel.</h2>
+            <p>Pick subdomain or path mode when you set up the server. TCP and UDP work with a share code.</p>
         </div>
         <div className="modes">
             {modes.map(mode => (
