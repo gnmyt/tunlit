@@ -56,6 +56,22 @@ mounted volume (see [Configuration](/configuration)).
 
 ## ⌨️ CLI
 
+One line on Linux and macOS:
+
+```sh
+curl -fsSL https://tunlit.dev/install | sh
+```
+
+And on Windows:
+
+```powershell
+irm https://tunlit.dev/install.ps1 | iex
+```
+
+The script adds the package repository on Debian, Ubuntu, Fedora and RHEL, runs the installer on Windows and puts
+the plain binary in `/usr/local/bin` everywhere else. It stops with a message on architectures other than x86-64
+and ARM64. The manual steps follow.
+
 ### Debian, Ubuntu
 
 ```sh

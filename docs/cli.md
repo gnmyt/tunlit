@@ -142,8 +142,11 @@ tunlit tcp 25565 --block-country ru          # rules work for tcp too
 All flags repeat or take comma-separated values. Block rules win over allow rules. `--password` and `--require-login`
 are mutually exclusive. Rules can be changed later in the web UI, the CLI prints the new rules and they survive a reconnect.
 
-While the tunnel is open, every request that passes through is printed as it completes, with country, network and
-flags of the visitor:
+While the tunnel is open the CLI shows a terminal UI: the public address, live request rate, p50 and p90, and a table
+of requests with status, duration, client address and location. Arrow keys select a row, `c` copies the URL, `o`
+opens it in the browser, `q` quits.
+
+Pass `--plain` to get one line per request instead, which is also what you get when the output is not a terminal:
 
 ```
 GET  200 /            3ms  DE · Hetzner Online · datacenter

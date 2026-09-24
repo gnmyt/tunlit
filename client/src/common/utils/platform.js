@@ -35,14 +35,18 @@ export const detectPlatform = async () => {
                 : high.architecture === "x86" && high.bitness === "64" ? "x64" : null;
             if (os) return { os, arch: arch || fromUserAgent().arch };
         } catch {
-            // Client hints can be refused by permissions policy; the user agent still answers.
+            return fromUserAgent();
         }
     }
     return fromUserAgent();
 };
 
+export const installCommand = os => (os === "windows" ? "irm https://tunlit.dev/install.ps1 | iex" : "curl -fsSL https://tunlit.dev/install | sh");
+
+export const releasesUrl = version => (version ? `${REPOSITORY}/releases/tag/v${version}` : `${REPOSITORY}/releases/latest`);
+
 export const downloadsFor = ({ os, arch }, version) => {
-    const all = version ? `${REPOSITORY}/releases/tag/v${version}` : `${REPOSITORY}/releases/latest`;
+    const all = releasesUrl(version);
     if (!os) return { version, all, files: [] };
 
     const base = version ? `${REPOSITORY}/releases/download/v${version}` : `${REPOSITORY}/releases/latest/download`;

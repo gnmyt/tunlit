@@ -22,8 +22,8 @@ export const Connect = () => {
             </div>
 
             <p className="connect-hint">
-                No tunlit yet? Grab the CLI from the <a href="https://github.com/gnmyt/tunlit/releases"
-                   target="_blank" rel="noreferrer noopener">releases page</a>. You do not need an account to connect.
+                No tunlit yet? <a href="https://docs.tunlit.dev/installation" target="_blank" rel="noreferrer noopener">Install it</a> in one line.
+                You do not need an account to connect.
             </p>
         </div>
     );

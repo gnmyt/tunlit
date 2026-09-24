@@ -39,6 +39,12 @@ volumes:
     },
 };
 
+const QUICK = {
+    linux: "curl -fsSL https://tunlit.dev/install | sh",
+    macos: "curl -fsSL https://tunlit.dev/install | sh",
+    windows: "irm https://tunlit.dev/install.ps1 | iex",
+};
+
 const CLI = {
     linux: {
         label: "Linux",
@@ -137,6 +143,8 @@ export const Install = () => {
                         ))}
                     </div>
                 </div>
+                <CodeBlock title="One line" code={QUICK[os]} />
+                <p className="install-note">Picks the package repository on Debian, Ubuntu, Fedora and RHEL, the installer on Windows, and the plain binary everywhere else.</p>
                 <div className="install-blocks">
                     {cli.download && <a className="install-download" href={cli.download.url}>{cli.download.label}</a>}
                     {cli.blocks.map(block => <CodeBlock key={block.title} title={block.title} code={block.code} />)}

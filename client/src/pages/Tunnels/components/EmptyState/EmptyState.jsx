@@ -1,15 +1,17 @@
 import "./styles.sass";
 import { useEffect, useState } from "react";
-import { Download, Waypoints } from "lucide-react";
+import { ChevronDown, Download, Waypoints } from "lucide-react";
 import CopyField from "@/common/components/CopyField";
-import { detectPlatform, downloadsFor } from "@/common/utils/platform.js";
+import { detectPlatform, downloadsFor, installCommand } from "@/common/utils/platform.js";
 
 export const EmptyState = () => {
-    const [downloads, setDownloads] = useState(() => downloadsFor({}));
+    const [platform, setPlatform] = useState({ os: null, arch: null });
+    const [open, setOpen] = useState(false);
+    const downloads = downloadsFor(platform);
     const [primary, ...rest] = downloads.files;
 
     useEffect(() => {
-        detectPlatform().then(platform => setDownloads(downloadsFor(platform)));
+        detectPlatform().then(setPlatform);
     }, []);
 
     return (
@@ -17,13 +19,17 @@ export const EmptyState = () => {
             <div className="empty-head">
                 <Waypoints size={22} />
                 <h2>No tunnels yet</h2>
-                <p>Tunnels show up here the moment the CLI shares something. Three steps to the first one.</p>
+                <p>Tunnels show up here the moment the CLI shares something.</p>
+                <button type="button" className={`empty-toggle${open ? " open" : ""}`} onClick={() => setOpen(!open)} aria-expanded={open}>
+                    Getting started<ChevronDown />
+                </button>
             </div>
 
-            <ol className="empty-steps">
+            {open && <ol className="empty-steps">
                 <li>
                     <h3>Get the CLI</h3>
-                    <p>A single binary with nothing to install around it.</p>
+                    <p>One line, picks the right build for this machine.</p>
+                    <CopyField value={installCommand(platform.os)} />
                     {primary && <a className="empty-download" href={primary.url}>
                         <Download />
                         <span>{primary.label}</span>
@@ -43,7 +49,7 @@ export const EmptyState = () => {
                     <p>Swap 3000 for the port your app runs on, or share a folder with <code>tunlit serve .</code></p>
                     <CopyField value="tunlit http 3000" />
                 </li>
-            </ol>
+            </ol>}
         </div>
     );
 };

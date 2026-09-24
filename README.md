@@ -73,6 +73,7 @@ RHEL have an rpm repository, and macOS has a plain binary. All of it is in
 ## Use it
 
 ```sh
+curl -fsSL https://tunlit.dev/install | sh
 tunlit login                 # link this machine to your server, once
 tunlit http 3000             # share a local port
 tunlit http ./dist           # or a folder, with a built-in file server
