@@ -1,6 +1,6 @@
 use eframe::egui::{self, Align, Layout, Ui};
 use crate::gui::app::{state_dot, LoginStage, Page, TunnelState, Window};
-use crate::gui::widgets::{self, ButtonKind, ChipKind, FieldOptions};
+use crate::gui::widgets::{self, ButtonKind, FieldOptions};
 use crate::gui::{format, theme};
 
 impl Window<'_> {
@@ -46,7 +46,7 @@ impl Window<'_> {
                             ui.spacing_mut().item_spacing.x = 8.0;
                             widgets::dot(ui, state_dot(&card.state));
                             widgets::mono(ui, card.title(), 14.0, theme::TEXT);
-                            widgets::chip(ui, card.kind.label(), ChipKind::Neutral);
+                            widgets::text(ui, card.kind.label(), 12.0, theme::MUTED);
                             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                 widgets::text(ui, "›", 16.0, theme::MUTED);
                                 widgets::text(ui, format::ago(card.started), 12.0, theme::MUTED);

@@ -1,8 +1,8 @@
 use eframe::egui::{self, Align, Layout, Ui};
 use crate::auth;
 use crate::gui::app::Window;
-use crate::gui::widgets::{self, ButtonKind, ChipKind};
-use crate::gui::theme;
+use crate::gui::widgets::{self, ButtonKind};
+use crate::gui::{autostart, theme, HOTKEY_LABEL};
 
 impl Window<'_> {
     pub fn settings_page(&mut self, ui: &mut Ui) {
@@ -25,8 +25,8 @@ impl Window<'_> {
                         }
                     });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if state.linked() { widgets::chip(ui, "Linked", ChipKind::Online); }
-                        else if server_url.is_some() { widgets::chip(ui, "Not linked", ChipKind::Warning); }
+                        if state.linked() { widgets::text(ui, "Linked", 12.5, theme::SUCCESS); }
+                        else if server_url.is_some() { widgets::text(ui, "Not linked", 12.5, theme::WARNING); }
                     });
                 });
                 ui.add_space(4.0);
@@ -35,6 +35,10 @@ impl Window<'_> {
                     (Some(_), Some(Ok(info))) => { ui.add(egui::Label::new(egui::RichText::new(format!("{} {} · tunnels under {}", info.name, info.version, info.base_domain)).size(12.5).color(theme::SUBTEXT)).wrap()); }
                     (Some(_), Some(Err(err))) => { ui.add(egui::Label::new(egui::RichText::new(format!("Not reachable: {err}")).size(12.5).color(theme::ERROR)).wrap()); }
                     (Some(_), None) => { widgets::text(ui, "Checking...", 12.5, theme::MUTED); }
+                }
+                if let Some(username) = &state.username {
+                    ui.add_space(2.0);
+                    widgets::text(ui, format!("Signed in as {username}"), 12.5, theme::SUBTEXT);
                 }
                 if state.linked() {
                     ui.add_space(10.0);
@@ -55,6 +59,22 @@ impl Window<'_> {
                     match state.cfg.save() { Ok(_) => state.fetch_info(), Err(err) => state.toast_error(format!("{err:#}")) }
                 }
             });
+
+            if state.has_tray {
+                ui.add_space(24.0);
+                widgets::section(ui, "Window", None);
+                widgets::card(ui, |ui| {
+                    ui.spacing_mut().item_spacing.y = 14.0;
+                    let mut autostart_on = state.autostart;
+                    if widgets::toggle_row(ui, "Launch at login", "Starts hidden in the tray", &mut autostart_on).changed() {
+                        match autostart::set(autostart_on) {
+                            Ok(_) => state.autostart = autostart_on,
+                            Err(err) => state.toast_error(format!("{err:#}")),
+                        }
+                    }
+                    if state.hotkey { widgets::text(ui, format!("{HOTKEY_LABEL} shows or hides the window"), 12.5, theme::MUTED); }
+                });
+            }
 
             ui.add_space(24.0);
             widgets::section(ui, "About", None);

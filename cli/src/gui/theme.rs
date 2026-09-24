@@ -21,13 +21,11 @@ pub const MUTED: Color32 = Color32::from_rgb(0x79, 0x71, 0x6B);
 pub const ERROR: Color32 = Color32::from_rgb(0xF8, 0x71, 0x71);
 pub const ERROR_TINT: Color32 = Color32::from_rgba_premultiplied(32, 15, 15, 33);
 pub const SUCCESS: Color32 = Color32::from_rgb(0x34, 0xD3, 0x99);
-pub const SUCCESS_TINT: Color32 = Color32::from_rgba_premultiplied(7, 27, 20, 33);
 pub const WARNING: Color32 = Color32::from_rgb(0xFB, 0xBF, 0x24);
 pub const WARNING_TINT: Color32 = Color32::from_rgba_premultiplied(32, 25, 5, 33);
 
 pub const RADIUS_INPUT: u8 = 12;
 pub const RADIUS_CARD: u8 = 14;
-pub const RADIUS_CHIP: u8 = 6;
 pub const RADIUS_SMALL: u8 = 10;
 
 pub const GUTTER: f32 = 16.0;

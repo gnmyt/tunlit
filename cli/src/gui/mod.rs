@@ -1,4 +1,5 @@
 mod app;
+mod autostart;
 mod format;
 mod instance;
 #[cfg(target_os = "linux")]
@@ -25,6 +26,8 @@ static WAYLAND: AtomicBool = AtomicBool::new(false);
 
 pub fn hide_by_closing() -> bool { WAYLAND.load(Ordering::Relaxed) }
 
+pub const HOTKEY_LABEL: &str = "Super+Shift+T";
+
 pub enum Wake { Toggle, Show, OpenLink(Option<String>), Quit }
 
 #[derive(Clone, Default)]
@@ -36,7 +39,7 @@ impl Repaint {
     pub fn ping(&self) { if let Some(ctx) = self.0.lock().unwrap().as_ref() { ctx.request_repaint(); } }
 }
 
-pub fn launch(runtime: Handle, link: Option<String>) -> Result<()> {
+pub fn launch(runtime: Handle, link: Option<String>, hidden: bool) -> Result<()> {
     detach_console();
     if instance::hand_over(link.as_deref()) { return Ok(()); }
     #[cfg(target_os = "linux")]
@@ -51,12 +54,19 @@ pub fn launch(runtime: Handle, link: Option<String>) -> Result<()> {
             .context("Could not listen for links from the browser")?;
     }
 
+    let hotkey = hotkey(wake_tx.clone(), repaint.clone());
     let mut state = app::State::new(runtime, repaint.clone(), tray.is_some());
+    state.start_hidden = hidden && tray.is_some();
+    state.hotkey = hotkey.is_some();
     if let Some(link) = link { state.open_link(link); }
 
+    let mut open = !(state.start_hidden && hide_by_closing());
     let result = loop {
-        if let Err(err) = run_window(&mut state, &wake_rx, &repaint) { break Err(err); }
-        if state.quitting { break Ok(()); }
+        if open {
+            if let Err(err) = run_window(&mut state, &wake_rx, &repaint) { break Err(err); }
+            if state.quitting { break Ok(()); }
+        }
+        open = true;
         match wake_rx.recv() {
             Ok(Wake::Toggle | Wake::Show) => {}
             Ok(Wake::OpenLink(link)) => { if let Some(link) = link { state.open_link(link); } }
@@ -84,6 +94,7 @@ fn run_window(state: &mut app::State, wake_rx: &mpsc::Receiver<Wake>, repaint: &
         Some(position) => viewport.with_position(position),
         None => viewport.with_visible(hide_by_closing()),
     };
+    let viewport = if state.start_hidden { viewport.with_visible(false) } else { viewport };
     let options = eframe::NativeOptions { viewport, ..Default::default() };
 
     let outcome = eframe::run_native("tunlit", options, Box::new(|cc| {
@@ -93,6 +104,16 @@ fn run_window(state: &mut app::State, wake_rx: &mpsc::Receiver<Wake>, repaint: &
     }));
     repaint.detach();
     outcome.map_err(|err| anyhow::anyhow!("{err}")).context("Could not open the tunlit window")
+}
+
+fn hotkey(wake: mpsc::Sender<Wake>, repaint: Repaint) -> Option<global_hotkey::GlobalHotKeyManager> {
+    use global_hotkey::{hotkey::{Code, HotKey, Modifiers}, GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState};
+    let manager = GlobalHotKeyManager::new().ok()?;
+    manager.register(HotKey::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyT)).ok()?;
+    GlobalHotKeyEvent::set_event_handler(Some(move |event: GlobalHotKeyEvent| {
+        if event.state == HotKeyState::Pressed { let _ = wake.send(Wake::Toggle); repaint.ping(); }
+    }));
+    Some(manager)
 }
 
 pub fn corner_for(area: egui::Rect) -> egui::Pos2 {

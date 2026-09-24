@@ -1,5 +1,5 @@
 import "./styles.sass";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Button from "@/common/components/Button";
 import Flag from "@/common/components/Flag";
 import ActionConfirmDialog from "@/common/components/ActionConfirmDialog";
@@ -18,7 +18,12 @@ const STATUSES = [2, 3, 4, 5];
 const COLUMNS = [["time", "Time"], ["client", "Client"], ["method", "Method"], ["path", "Path"], ["status", "Status"], ["duration", "Duration"]];
 const EMPTY = { search: "", methods: [], statuses: [], countries: [] };
 
+const rowClass = (...names) => names.filter(Boolean).join(" ");
 const toggle = (list, value) => (list.includes(value) ? list.filter(entry => entry !== value) : [...list, value]);
+const typing = () => {
+    const active = document.activeElement;
+    return active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT" || active.isContentEditable);
+};
 
 export const TrafficTable = ({ id, heading, focus }) => {
     const { sendToast } = useToast();
@@ -35,6 +40,8 @@ export const TrafficTable = ({ id, heading, focus }) => {
     const [sort, setSort] = useState({ by: "time", order: "desc" });
     const [breakpoints, setBreakpoints] = useState({ rules: [], held: [], now: 0 });
     const [showBreakpoints, setShowBreakpoints] = useState(false);
+    const [cursor, setCursor] = useState(null);
+    const keyState = useRef({});
 
     useEffect(() => {
         const timer = setTimeout(() => setFilter(current => ({ ...current, search: search.trim() })), 250);
@@ -87,6 +94,36 @@ export const TrafficTable = ({ id, heading, focus }) => {
     }, [breakpoints.held, selected]);
 
     const pick = entry => setSelected({ ...entry, held: true });
+
+    useEffect(() => {
+        keyState.current = { rows: [...breakpoints.held.map(entry => ({ ...entry, held: true })), ...requests], cursor, selected };
+    }, [breakpoints.held, requests, cursor, selected]);
+
+    useEffect(() => {
+        const onKey = event => {
+            if (event.altKey || event.ctrlKey || event.metaKey || typing()) return;
+            const { rows, cursor, selected } = keyState.current;
+            if (event.key === "j" || event.key === "k") {
+                if (rows.length === 0) return;
+                const at = rows.findIndex(entry => entry.id === (cursor ?? selected?.id));
+                const next = event.key === "j" ? Math.min(rows.length - 1, at + 1) : Math.max(0, at - 1);
+                setCursor(rows[next].id);
+                if (selected) setSelected(rows[next]);
+                document.querySelector(`.traffic-table tr[data-id="${rows[next].id}"]`)?.scrollIntoView({ block: "nearest" });
+            } else if (event.key === "Enter" && cursor !== null) {
+                const entry = rows.find(entry => entry.id === cursor);
+                if (entry) setSelected(entry);
+            } else if (event.key === "Escape") {
+                setCursor(null);
+            } else if (event.key === "r" && selected && !selected.held) {
+                postRequest(`tunnels/${id}/requests/${selected.id}/replay`, {})
+                    .then(result => sendToast("Success", result.message))
+                    .catch(error => sendToast("Error", error.message));
+            }
+        };
+        document.addEventListener("keydown", onKey);
+        return () => document.removeEventListener("keydown", onKey);
+    }, [id, sendToast]);
 
     const settle = async (held, input) => {
         try {
@@ -191,8 +228,8 @@ export const TrafficTable = ({ id, heading, focus }) => {
                         </thead>
                         <tbody>
                             {breakpoints.held.map(entry => (
-                                <tr key={entry.id} className={`held${selected?.id === entry.id ? " selected" : ""}`} tabIndex={0}
-                                    onClick={() => pick(entry)} onKeyDown={event => event.key === "Enter" && pick(entry)}>
+                                <tr key={entry.id} data-id={entry.id} className={rowClass("held", selected?.id === entry.id && "selected", cursor === entry.id && "cursor")}
+                                    onClick={() => pick(entry)}>
                                     <td className="mono dim">{formatTime(entry.time)}</td>
                                     <td className="mono client">{entry.ip}</td>
                                     <td className="mono"><PhaseIcon phase={entry.phase} />{entry.method}</td>
@@ -202,8 +239,8 @@ export const TrafficTable = ({ id, heading, focus }) => {
                                 </tr>
                             ))}
                             {requests.map(entry => (
-                                <tr key={entry.id} className={selected?.id === entry.id ? "selected" : ""} tabIndex={0}
-                                    onClick={() => setSelected(entry)} onKeyDown={event => event.key === "Enter" && setSelected(entry)}>
+                                <tr key={entry.id} data-id={entry.id} className={rowClass(selected?.id === entry.id && "selected", cursor === entry.id && "cursor")}
+                                    onClick={() => setSelected(entry)}>
                                     <td className="mono dim">{formatTime(entry.time)}</td>
                                     <td className="mono client"><Flag code={entry.intel?.country} />{entry.ip}</td>
                                     <td className="mono">{entry.kind === "ws" ? "WS" : entry.method}</td>

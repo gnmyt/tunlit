@@ -76,6 +76,7 @@ impl Target {
     }
 }
 
+#[derive(Clone)]
 pub enum TargetSpec { Addr(Target), Dir(PathBuf), Routes(Vec<Route>) }
 
 impl TargetSpec {
@@ -180,6 +181,7 @@ impl Access {
     }
 }
 
+#[derive(Clone)]
 pub struct Options { pub mode: &'static str, pub target: TargetSpec, pub name: Option<String>, pub keep_host: bool, pub access: Access, pub shape: Shape }
 
 impl Options {

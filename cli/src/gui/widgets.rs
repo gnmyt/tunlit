@@ -101,46 +101,6 @@ pub fn field(ui: &mut Ui, id: impl std::hash::Hash + std::fmt::Debug, value: &mu
     }).inner
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum ChipKind { Neutral, Online, Warning, Error, Mono, Primary }
-
-impl ChipKind {
-    fn colors(self) -> (Color32, Color32) {
-        match self {
-            ChipKind::Neutral | ChipKind::Mono => (theme::SURFACE_HOVER, theme::SUBTEXT),
-            ChipKind::Online => (theme::SUCCESS_TINT, theme::SUCCESS),
-            ChipKind::Warning => (theme::WARNING_TINT, theme::WARNING),
-            ChipKind::Error => (theme::ERROR_TINT, theme::ERROR),
-            ChipKind::Primary => (theme::PRIMARY_TINT, theme::PRIMARY),
-        }
-    }
-}
-
-fn pill(ui: &mut Ui, label: &str, fill: Color32, color: Color32, family: egui::FontFamily, padding: Vec2) -> Response {
-    let galley = ui.painter().layout_no_wrap(label.to_string(), theme::font(11.0, family), color);
-    let (rect, response) = ui.allocate_exact_size(galley.size() + padding, Sense::hover());
-    ui.painter().rect_filled(rect, corner(theme::RADIUS_CHIP), fill);
-    ui.painter().galley(rect.center() - galley.size() / 2.0, galley, color);
-    response
-}
-
-pub fn chip(ui: &mut Ui, label: &str, kind: ChipKind) -> Response {
-    let (fill, color) = kind.colors();
-    let family = if kind == ChipKind::Mono { theme::mono() } else { theme::semibold() };
-    pill(ui, label, fill, color, family, egui::vec2(14.0, 5.0))
-}
-
-pub fn status_chip(ui: &mut Ui, status: u16) {
-    let kind = match status {
-        200..=299 => ChipKind::Online,
-        300..=399 => ChipKind::Primary,
-        400..=499 => ChipKind::Warning,
-        _ => ChipKind::Error,
-    };
-    let (fill, color) = kind.colors();
-    pill(ui, &status.to_string(), fill, color, theme::mono(), egui::vec2(12.0, 4.0));
-}
-
 pub fn dot(ui: &mut Ui, color: Color32) {
     let (rect, _) = ui.allocate_exact_size(egui::vec2(8.0, 8.0), Sense::hover());
     ui.painter().circle_filled(rect.center(), 3.5, color);
@@ -198,6 +158,15 @@ pub fn toggle(ui: &mut Ui, on: &mut bool) -> Response {
     ui.painter().circle_filled(egui::pos2(x, rect.center().y), radius, if *on { theme::ON_PRIMARY } else { theme::SUBTEXT });
     if response.hovered() { ui.ctx().set_cursor_icon(CursorIcon::PointingHand); }
     response
+}
+
+pub fn status_color(status: u16) -> Color32 {
+    match status {
+        200..=299 => theme::SUCCESS,
+        300..=399 => theme::PRIMARY,
+        400..=499 => theme::WARNING,
+        _ => theme::ERROR,
+    }
 }
 
 pub fn toggle_row(ui: &mut Ui, label: &str, hint: &str, on: &mut bool) -> Response {

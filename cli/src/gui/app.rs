@@ -9,13 +9,16 @@ use crate::api::{ApiClient, ServerInfo};
 use crate::auth::{self, LoginEvent};
 use crate::config::Config;
 use crate::connect;
-use crate::session::{self, JoinEvent, Online, Request, Stop, StopHandle, TunnelEvent};
-use crate::tunnel::{self, Options};
+use crate::qr;
+use crate::session::{self, Connection, JoinEvent, Online, Request, Stop, StopHandle, Task, TunnelEvent};
+use crate::tunnel::{self, connect_target, Options, Target};
 use super::{format, hide_by_closing, theme, widgets, Repaint, Wake};
-use super::widgets::ChipKind;
 
 const MAX_REQUESTS: usize = 500;
 const TOAST_FOR: Duration = Duration::from_secs(3);
+const UNDO_FOR: Duration = Duration::from_secs(8);
+const PROBE_TIMEOUT: Duration = Duration::from_secs(1);
+const PROBE_INTERVAL: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Page { Tunnels, NewTunnel, Tunnel(u64), Connect, Settings }
@@ -29,6 +32,8 @@ pub enum Msg {
     Login(LoginEvent),
     LoginFailed(String),
     Info(Result<ServerInfo, String>),
+    Me(Option<String>),
+    TunnelProbe(u64, Option<String>),
     FolderPicked(Option<PathBuf>),
 }
 
@@ -47,11 +52,14 @@ pub struct LoggedRequest { pub request: Request, pub at: Instant }
 pub struct TunnelCard {
     pub id: u64,
     pub kind: TunnelKind,
+    pub opts: Options,
     pub target_label: String,
     pub access: Option<String>,
+    pub probe: Option<String>,
     pub state: TunnelState,
     pub online: Option<Online>,
     pub requests: VecDeque<LoggedRequest>,
+    pub connections: VecDeque<Connection>,
     pub request_count: u64,
     pub started: Instant,
     pub stop: StopHandle,
@@ -110,7 +118,13 @@ impl Default for NewTunnelForm {
 #[derive(Default)]
 pub struct ConnectForm { pub link: String, pub error: Option<String>, pub retry_port: Option<String> }
 
-pub struct Toast { pub text: String, pub at: Instant, pub error: bool }
+pub enum ToastAction { Reopen(TunnelKind, Options) }
+
+pub struct Toast { pub text: String, pub at: Instant, pub error: bool, pub action: Option<ToastAction> }
+
+impl Toast {
+    pub fn expired(&self) -> bool { self.at.elapsed() > if self.action.is_some() { UNDO_FOR } else { TOAST_FOR } }
+}
 
 #[derive(Clone)]
 struct Mailbox { tx: Sender<Msg>, repaint: Repaint }
@@ -132,6 +146,10 @@ pub struct State {
     pub tunnels: Vec<TunnelCard>,
     pub joins: Vec<JoinCard>,
     next_id: u64,
+    pub username: Option<String>,
+    pub start_hidden: bool,
+    pub hotkey: bool,
+    pub autostart: bool,
     pub login: LoginForm,
     pub new_tunnel: NewTunnelForm,
     pub connect: ConnectForm,
@@ -149,9 +167,10 @@ impl State {
         let mut state = Self {
             runtime, mailbox: Mailbox { tx, repaint }, rx, page: Page::Tunnels, cfg, server_info: None, tunnels: Vec::new(), joins: Vec::new(), next_id: 1,
             login, new_tunnel: NewTunnelForm::default(), connect: ConnectForm::default(),
-            toasts: Vec::new(), has_tray, quitting: false, monitor: None,
+            username: None, start_hidden: false, hotkey: false, autostart: super::autostart::enabled(), toasts: Vec::new(), has_tray, quitting: false, monitor: None,
         };
         state.fetch_info();
+        state.fetch_me();
         state
     }
 
@@ -170,11 +189,22 @@ impl State {
         });
     }
 
-    pub fn toast(&mut self, text: impl Into<String>) { self.toasts.push(Toast { text: text.into(), at: Instant::now(), error: false }); }
-    pub fn toast_error(&mut self, text: impl Into<String>) { self.toasts.push(Toast { text: text.into(), at: Instant::now(), error: true }); }
+    pub fn toast(&mut self, text: impl Into<String>) { self.toasts.push(Toast { text: text.into(), at: Instant::now(), error: false, action: None }); }
+    pub fn toast_error(&mut self, text: impl Into<String>) { self.toasts.push(Toast { text: text.into(), at: Instant::now(), error: true, action: None }); }
+
+    pub fn fetch_me(&mut self) {
+        let (Some(url), Some(token)) = (self.cfg.server_url(), self.cfg.device_token.clone()) else { self.username = None; return };
+        let accept = self.cfg.accept_invalid_certs;
+        let mailbox = self.mailbox.clone();
+        self.runtime.spawn(async move {
+            let me = async { ApiClient::new(&url, Some(&token), accept)?.get::<Me>("/auth/me").await }.await.ok().map(|me| me.username);
+            mailbox.send(Msg::Me(me));
+        });
+    }
 
     pub fn reload_config(&mut self) {
         self.cfg = Config::load().unwrap_or_default();
+        self.fetch_me();
     }
 
     pub fn stop_all(&self) {
@@ -239,8 +269,8 @@ impl State {
         let (events, rx) = session::channel();
         let (handle, stop) = Stop::new();
         self.tunnels.push(TunnelCard {
-            id, kind, target_label, access: None, state: TunnelState::Connecting, online: None,
-            requests: VecDeque::new(), request_count: 0, started: Instant::now(), stop: handle, show_qr: false, copied_at: None,
+            id, kind, opts: opts.clone(), target_label, access: None, probe: None, state: TunnelState::Connecting, online: None,
+            requests: VecDeque::new(), connections: VecDeque::new(), request_count: 0, started: Instant::now(), stop: handle, show_qr: false, copied_at: None,
         });
         self.forward(rx, move |event| Msg::Tunnel(id, event));
         let mailbox = self.mailbox.clone();
@@ -248,6 +278,7 @@ impl State {
             let result = async {
                 let (opts, target, label, _local) = tunnel::prepare(opts).await?;
                 mailbox.send(Msg::TunnelReady(id, label));
+                let _probe = (kind != TunnelKind::Files).then(|| Task(tokio::spawn(probe(mailbox.clone(), id, target.clone()))));
                 tunnel::run(opts, target, events, stop).await
             }.await;
             if let Err(err) = result { mailbox.send(Msg::TunnelFailed(id, format!("{err:#}"))); }
@@ -302,6 +333,13 @@ impl State {
         if self.page == Page::Tunnel(id) { self.page = Page::Tunnels; }
     }
 
+    pub fn stop_tunnel_by_user(&mut self, id: u64) {
+        let Some(card) = self.tunnels.iter().find(|card| card.id == id) else { return };
+        let (kind, opts, name) = (card.kind, card.opts.clone(), card.title());
+        self.stop_tunnel(id);
+        self.toasts.push(Toast { text: format!("{name} stopped"), at: Instant::now(), error: false, action: Some(ToastAction::Reopen(kind, opts)) });
+    }
+
     pub fn stop_join(&mut self, id: u64) {
         if let Some(index) = self.joins.iter().position(|join| join.id == id) {
             self.joins.remove(index).stop.stop();
@@ -319,9 +357,12 @@ impl State {
             Msg::TunnelReady(id, label) => { if let Some(card) = self.tunnel_mut(id) { card.target_label = label; } }
             Msg::Tunnel(id, event) => self.handle_tunnel(id, event),
             Msg::TunnelFailed(id, message) => {
+                let fresh = self.tunnel_mut(id).is_some_and(|card| card.online.is_none());
                 self.stop_tunnel(id);
-                self.toast_error(message);
+                if fresh { self.new_tunnel.error = Some(message); self.page = Page::NewTunnel; } else { self.toast_error(message); }
             }
+            Msg::Me(username) => self.username = username,
+            Msg::TunnelProbe(id, warning) => { if let Some(card) = self.tunnel_mut(id) { card.probe = warning; } }
             Msg::Join(id, event) => self.handle_join(id, event),
             Msg::JoinFailed(id, message, port_in_use) => self.fail_join(id, message, port_in_use),
             Msg::Login(LoginEvent::Code { code, handoff_url }) => {
@@ -345,6 +386,7 @@ impl State {
     }
 
     fn handle_tunnel(&mut self, id: u64, event: TunnelEvent) {
+        let server_url = self.server_url();
         let Some(card) = self.tunnel_mut(id) else { return };
         let mut toast = None;
         match event {
@@ -352,11 +394,21 @@ impl State {
             TunnelEvent::Online(online) | TunnelEvent::Resumed(online) | TunnelEvent::Replaced(online) => {
                 let fresh = card.online.as_ref().is_none_or(|current| current.id != online.id);
                 card.state = TunnelState::Online;
-                if fresh { toast = Some(format!("Tunnel {} is online", online.id)); }
                 card.access = online.access.clone();
+                if fresh {
+                    let copied = online.link(&server_url).is_some_and(|link| qr::copy(&link));
+                    toast = Some(if copied { format!("{} is online, link copied", online.id) } else { format!("{} is online", online.id) });
+                }
                 card.online = Some(online);
             }
-            TunnelEvent::Connection(_) => {}
+            TunnelEvent::Connection(connection) => {
+                if connection.opened {
+                    card.connections.push_front(connection);
+                    card.connections.truncate(MAX_REQUESTS);
+                } else if let Some(existing) = card.connections.iter_mut().find(|entry| entry.key == connection.key) {
+                    *existing = connection;
+                }
+            }
             TunnelEvent::Access(summary) => card.access = Some(summary),
             TunnelEvent::Request(request) => {
                 card.request_count += 1;
@@ -393,6 +445,7 @@ pub struct Window<'a> {
     qr: HashMap<u64, (String, TextureHandle)>,
     visible: bool,
     focused: bool,
+    was_focused: bool,
     needs_show: bool,
     place_frames: u8,
 }
@@ -401,8 +454,9 @@ impl<'a> Window<'a> {
     pub fn new(cc: &eframe::CreationContext<'_>, state: &'a mut State, wake: &'a Receiver<Wake>) -> Self {
         let logo = cc.egui_ctx.load_texture("logo",
             egui::ColorImage::from_rgba_unmultiplied([super::ICON_SIZE as usize; 2], super::ICON_RGBA), TextureOptions::LINEAR);
-        let hidden_at_start = state.corner_position().is_none() && !hide_by_closing();
-        Self { state, wake, logo, qr: HashMap::new(), visible: !hidden_at_start, focused: false, needs_show: hidden_at_start, place_frames: 3 }
+        let start_hidden = std::mem::take(&mut state.start_hidden);
+        let needs_show = !start_hidden && state.corner_position().is_none() && !hide_by_closing();
+        Self { state, wake, logo, qr: HashMap::new(), visible: !start_hidden && !needs_show, focused: false, was_focused: false, needs_show, place_frames: 3 }
     }
 
     pub fn qr_for(&mut self, ctx: &egui::Context, card_id: u64, link: &str) -> Option<TextureHandle> {
@@ -488,13 +542,14 @@ impl<'a> Window<'a> {
     }
 
     fn toasts(&mut self, ctx: &egui::Context) {
-        self.state.toasts.retain(|toast| toast.at.elapsed() < TOAST_FOR);
+        self.state.toasts.retain(|toast| !toast.expired());
         if self.state.toasts.is_empty() { return; }
         ctx.request_repaint_after(Duration::from_millis(250));
+        let mut acted = None;
         egui::Area::new(egui::Id::new("toasts")).anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -16.0)).order(egui::Order::Foreground).show(ctx, |ui| {
             ui.set_max_width(super::WINDOW_WIDTH - 32.0);
             ui.vertical(|ui| {
-                for toast in &self.state.toasts {
+                for (index, toast) in self.state.toasts.iter().enumerate() {
                     let (color, dot) = if toast.error { (theme::ERROR, theme::ERROR) } else { (theme::TEXT, theme::SUCCESS) };
                     Frame::new().fill(theme::SURFACE_RAISED).stroke(Stroke::new(1.0, theme::BORDER_STRONG))
                         .corner_radius(theme::corner(theme::RADIUS_INPUT)).inner_margin(Margin::symmetric(14, 10))
@@ -503,11 +558,13 @@ impl<'a> Window<'a> {
                             ui.horizontal(|ui| {
                                 widgets::dot(ui, dot);
                                 ui.add(egui::Label::new(RichText::new(&toast.text).size(13.0).color(color)).wrap());
+                                if toast.action.is_some() && widgets::button(ui, "Reopen", widgets::ButtonKind::Ghost).clicked() { acted = Some(index); }
                             });
                         });
                 }
             });
         });
+        if let Some(ToastAction::Reopen(kind, opts)) = acted.and_then(|index| self.state.toasts.remove(index).action) { self.state.start_tunnel(kind, opts); }
     }
 
     pub fn content(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
@@ -556,9 +613,14 @@ pub fn qr_texture(ctx: &egui::Context, name: &str, text: &str) -> Option<Texture
 
 impl eframe::App for Window<'_> {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.was_focused = self.focused;
         self.focused = ctx.input(|input| input.viewport().focused.unwrap_or(false));
         self.wake_events(ctx);
         self.state.drain(ctx);
+        if !self.visible || !self.state.has_tray || self.place_frames > 0 { return; }
+        let lost_focus = self.was_focused && !self.focused && !self.state.new_tunnel.picking_dir;
+        let escaped = self.focused && ctx.memory(|memory| memory.focused().is_none()) && ctx.input(|input| input.key_pressed(egui::Key::Escape));
+        if lost_focus || escaped { self.minimize(ctx); }
     }
 
     fn ui(&mut self, root: &mut Ui, _frame: &mut eframe::Frame) {
@@ -593,12 +655,28 @@ impl eframe::App for Window<'_> {
     }
 }
 
-pub fn state_chip(ui: &mut Ui, state: &TunnelState) {
+#[derive(serde::Deserialize)]
+struct Me { username: String }
+
+async fn reachable(target: &Target) -> bool {
+    let Ok(addrs) = target.resolve().await else { return false };
+    tokio::time::timeout(PROBE_TIMEOUT, connect_target(&addrs)).await.is_ok_and(|result| result.is_ok())
+}
+
+async fn probe(mailbox: Mailbox, id: u64, target: Target) {
+    while !reachable(&target).await {
+        mailbox.send(Msg::TunnelProbe(id, Some(format!("Nothing is listening on {} yet", target.authority()))));
+        tokio::time::sleep(PROBE_INTERVAL).await;
+    }
+    mailbox.send(Msg::TunnelProbe(id, None));
+}
+
+pub fn state_label(state: &TunnelState) -> &'static str {
     match state {
-        TunnelState::Connecting => widgets::chip(ui, "Connecting", ChipKind::Neutral),
-        TunnelState::Online => widgets::chip(ui, "Online", ChipKind::Online),
-        TunnelState::Reconnecting { .. } => widgets::chip(ui, "Reconnecting", ChipKind::Warning),
-    };
+        TunnelState::Connecting => "Connecting",
+        TunnelState::Online => "Online",
+        TunnelState::Reconnecting { .. } => "Reconnecting",
+    }
 }
 
 pub fn state_dot(state: &TunnelState) -> Color32 {

@@ -115,7 +115,7 @@ fn parse_target(target: &str) -> Result<(String, Option<String>)> {
 
 pub fn resolve(target: &str, server: Option<&str>) -> Result<(String, String, String)> {
     let (code, from_link) = parse_target(target)?;
-    if code.is_empty() || !code.chars().all(|c| c.is_ascii_alphanumeric()) { bail!("The share code must be alphanumeric"); }
+    if code.is_empty() || !code.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') { bail!("The share code must be alphanumeric"); }
     if code.len() <= 26 { bail!("That share code is too short"); }
     let cfg = Config::load()?;
     let server_url = server.map(normalize_url).or(from_link).or_else(|| cfg.server_url())

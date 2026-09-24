@@ -319,9 +319,9 @@ fn table(state: &mut State, area: Rect, frame: &mut Frame) {
 
 fn footer(state: &State, area: Rect, frame: &mut Frame) {
     let keys: Vec<(&str, &str)> = if state.ctx.tcp {
-        vec![("q", "quit"), ("↑↓", "select"), ("c", "copy share command")]
+        vec![("q", "quit"), ("↑↓", "select"), ("c", "copy share command"), ("d", "dashboard")]
     } else {
-        vec![("q", "quit"), ("↑↓", "select"), ("c", "copy url"), ("o", "open in browser")]
+        vec![("q", "quit"), ("↑↓", "select"), ("c", "copy url"), ("o", "open in browser"), ("d", "dashboard")]
     };
     let mut spans = Vec::new();
     for (index, (key, action)) in keys.iter().enumerate() {
@@ -391,6 +391,7 @@ pub async fn run(mut rx: UnboundedReceiver<TunnelEvent>, stop: StopHandle, ctx: 
                     KeyCode::Esc | KeyCode::Home => state.table.select(None),
                     KeyCode::Char('c') => { if state.copy() { state.notice("Link copied to clipboard"); } }
                     KeyCode::Char('o') => { if let Some(url) = state.online.as_ref().and_then(|online| online.url.clone()) { let _ = open::that(url); } }
+                    KeyCode::Char('d') => { if let Some(online) = &state.online { let _ = open::that(format!("{}/@tunlit/tunnels/{}", state.ctx.server_url, online.id)); } }
                     _ => {}
                 }
             },

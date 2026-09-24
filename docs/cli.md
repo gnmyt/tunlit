@@ -144,7 +144,7 @@ are mutually exclusive. Rules can be changed later in the web UI, the CLI prints
 
 While the tunnel is open the CLI shows a terminal UI: the public address, live request rate, p50 and p90, and a table
 of requests with status, duration, client address and location. Arrow keys select a row, `c` copies the URL, `o`
-opens it in the browser, `q` quits.
+opens it in the browser, `d` opens the tunnel in the web UI, `q` quits.
 
 Pass `--plain` to get one line per request instead, which is also what you get when the output is not a terminal:
 

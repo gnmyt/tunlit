@@ -23,7 +23,7 @@ const isReserved = name => RESERVED.has(name);
 const hashSecret = secret => crypto.createHash("sha256").update(secret).digest();
 
 const splitShareCode = code => {
-    if (typeof code !== "string" || !/^[A-Za-z0-9]+$/.test(code) || code.length <= SECRET_LENGTH) return null;
+    if (typeof code !== "string" || !/^[a-z0-9-]+[A-Za-z0-9]{26}$/.test(code)) return null;
     return { id: code.slice(0, -SECRET_LENGTH), secret: code.slice(-SECRET_LENGTH) };
 };
 

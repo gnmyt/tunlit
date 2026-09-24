@@ -9,7 +9,7 @@ build = "build.rs"
 
 [features]
 default = ["gui"]
-gui = ["dep:eframe", "dep:rfd", "dep:tray-icon", "dep:ksni", "dep:x11rb", "dep:windows-sys"]
+gui = ["dep:eframe", "dep:rfd", "dep:global-hotkey", "dep:tray-icon", "dep:ksni", "dep:x11rb", "dep:windows-sys"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
@@ -36,6 +36,7 @@ indicatif = "0.18"
 qrcode = { version = "0.14", default-features = false }
 arboard = { version = "3", default-features = false }
 eframe = { version = "0.36", optional = true }
+global-hotkey = { version = "0.8", optional = true }
 rfd = { version = "0.17", optional = true, default-features = false, features = ["xdg-portal"] }
 ratatui = "0.29"
 crossterm = { version = "0.28", features = ["event-stream"] }

@@ -53,7 +53,7 @@ impl Window<'_> {
                 }
                 widgets::field(ui, "nt-name", &mut form.name, FieldOptions { label: Some("Name (optional)"), hint: "myapp", mono: true, ..Default::default() });
                 if form.kind == TunnelKind::Http {
-                    widgets::toggle_row(ui, "Keep the public host", "", &mut form.keep_host);
+                    widgets::toggle_row(ui, "Keep the public host", "Send the public hostname as the Host header", &mut form.keep_host);
                 }
             });
 
@@ -89,15 +89,16 @@ impl Window<'_> {
                             form.allow_input.clear();
                         }
                     });
-                    if !form.allow.is_empty() {
-                        ui.horizontal_wrapped(|ui| {
-                            let mut drop = None;
-                            for (index, cidr) in form.allow.iter().enumerate() {
-                                if widgets::chip(ui, &format!("{cidr}  ✕"), widgets::ChipKind::Mono).interact(egui::Sense::click()).clicked() { drop = Some(index); }
-                            }
-                            if let Some(index) = drop { form.allow.remove(index); }
+                    let mut drop = None;
+                    for (index, cidr) in form.allow.iter().enumerate() {
+                        ui.horizontal(|ui| {
+                            widgets::mono(ui, cidr, 13.0, theme::SUBTEXT);
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                if widgets::button(ui, "Remove", ButtonKind::Ghost).clicked() { drop = Some(index); }
+                            });
                         });
                     }
+                    if let Some(index) = drop { form.allow.remove(index); }
                 });
             });
 

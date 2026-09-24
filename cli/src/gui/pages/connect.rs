@@ -1,6 +1,6 @@
 use eframe::egui::{self, Align, Layout, Ui};
 use crate::gui::app::{JoinState, Window};
-use crate::gui::widgets::{self, ButtonKind, ChipKind, FieldOptions};
+use crate::gui::widgets::{self, ButtonKind, FieldOptions};
 use crate::gui::{format, theme};
 
 impl Window<'_> {
@@ -51,9 +51,9 @@ impl Window<'_> {
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = 8.0;
                         match &join.state {
-                            JoinState::Connecting => { widgets::chip(ui, "Connecting", ChipKind::Neutral); }
-                            JoinState::Forwarding => { widgets::dot(ui, theme::SUCCESS); }
-                            JoinState::Reconnecting { .. } => { widgets::chip(ui, "Reconnecting", ChipKind::Warning); }
+                            JoinState::Connecting => widgets::dot(ui, theme::MUTED),
+                            JoinState::Forwarding => widgets::dot(ui, theme::SUCCESS),
+                            JoinState::Reconnecting { .. } => widgets::dot(ui, theme::WARNING),
                         }
                         ui.scope(|ui| {
                             ui.set_max_width(ui.available_width() - 84.0);

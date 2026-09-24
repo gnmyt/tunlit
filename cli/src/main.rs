@@ -78,6 +78,7 @@ enum Commands {
     #[cfg(feature = "gui")]
     Gui {
         link: Option<String>,
+        #[arg(long)] hidden: bool,
     },
     Config {
         #[command(subcommand)]
@@ -142,8 +143,8 @@ fn main() {
     let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(4).enable_all().build().unwrap_or_else(|err| fail(err.into()));
 
     #[cfg(feature = "gui")]
-    if let Commands::Gui { link } = cli.command {
-        gui::launch(runtime.handle().clone(), link).unwrap_or_else(|err| fail(err));
+    if let Commands::Gui { link, hidden } = cli.command {
+        gui::launch(runtime.handle().clone(), link, hidden).unwrap_or_else(|err| fail(err));
         return;
     }
 

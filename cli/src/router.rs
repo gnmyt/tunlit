@@ -15,8 +15,10 @@ use tokio::net::TcpListener;
 use crate::serve;
 use crate::tunnel::{connect_target, Target};
 
+#[derive(Clone)]
 pub enum RouteTarget { Addr(Target), Dir(PathBuf) }
 
+#[derive(Clone)]
 pub struct Route { pub prefix: String, pub target: RouteTarget }
 
 impl Route {
