@@ -246,7 +246,7 @@ impl State {
         let mailbox = self.mailbox.clone();
         self.runtime.spawn(async move {
             let result = async {
-                let (opts, target, label) = tunnel::prepare(opts).await?;
+                let (opts, target, label, _local) = tunnel::prepare(opts).await?;
                 mailbox.send(Msg::TunnelReady(id, label));
                 tunnel::run(opts, target, events, stop).await
             }.await;

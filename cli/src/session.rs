@@ -147,6 +147,12 @@ pub type Events<T> = mpsc::UnboundedSender<T>;
 
 pub fn channel<T>() -> (Events<T>, mpsc::UnboundedReceiver<T>) { mpsc::unbounded_channel() }
 
+pub struct Task(pub tokio::task::JoinHandle<()>);
+
+impl Drop for Task {
+    fn drop(&mut self) { self.0.abort(); }
+}
+
 #[derive(Clone)]
 pub struct StopHandle(watch::Sender<bool>);
 

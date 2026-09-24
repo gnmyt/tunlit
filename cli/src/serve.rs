@@ -2,21 +2,22 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
+use crate::session::Task;
 
 const MAX_HEADER_BYTES: usize = 16 * 1024;
 
-pub async fn start(dir: PathBuf) -> Result<u16> {
+pub async fn start(dir: PathBuf) -> Result<(u16, Task)> {
     let dir = dir.canonicalize().with_context(|| format!("Cannot read directory {}", dir.display()))?;
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let port = listener.local_addr()?.port();
-    tokio::spawn(async move {
+    let task = tokio::spawn(async move {
         loop {
             let Ok((socket, _)) = listener.accept().await else { continue };
             let dir = dir.clone();
             tokio::spawn(async move { let _ = handle(socket, &dir).await; });
         }
     });
-    Ok(port)
+    Ok((port, Task(task)))
 }
 
 async fn handle(socket: TcpStream, root: &Path) -> Result<()> {

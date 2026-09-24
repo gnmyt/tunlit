@@ -117,7 +117,7 @@ fn print_request(request: &Request) {
 pub async fn tunnel(opts: Options, plain: bool) -> Result<()> {
     let cfg = Config::load()?;
     let (server_url, token) = cfg.require_auth()?;
-    let (opts, target, label) = tunnel::prepare(opts).await?;
+    let (opts, target, label, _local) = tunnel::prepare(opts).await?;
     let shape = opts.shape.clone();
 
     if !plain && std::io::stdout().is_terminal() {

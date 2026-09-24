@@ -10,7 +10,7 @@ use crate::config::Config;
 use crate::mux::{expect, Mux, MuxEvents, OpenMeta};
 use crate::router::{self, Route, RouteTarget};
 use crate::serve;
-use crate::session::{Connection, Events, Online, Request, Stop, TunnelEvent};
+use crate::session::{Connection, Events, Online, Request, Stop, Task, TunnelEvent};
 use crate::shape::Shape;
 use crate::tcp::{pump_tcp, pump_udp_owner};
 
@@ -291,21 +291,21 @@ async fn handle_stream(writer: crate::mux::MuxWriter, reader: crate::mux::MuxRea
     }
 }
 
-pub async fn prepare(opts: Options) -> Result<(Options, Target, String)> {
+pub async fn prepare(opts: Options) -> Result<(Options, Target, String, Option<Task>)> {
     let label = opts.target.label();
-    let target = match opts.target {
-        TargetSpec::Addr(target) => target,
+    let (target, local) = match opts.target {
+        TargetSpec::Addr(target) => (target, None),
         TargetSpec::Dir(dir) => {
             if opts.mode == "tcp" { bail!("`tunlit tcp` needs a port or host:port, not a directory"); }
             local(serve::start(dir).await?)
         }
         TargetSpec::Routes(routes) => local(router::start(routes).await?),
     };
-    Ok((Options { target: TargetSpec::Addr(target.clone()), ..opts }, target, label))
+    Ok((Options { target: TargetSpec::Addr(target.clone()), ..opts }, target, label, local))
 }
 
-fn local(port: u16) -> Target {
-    Target { host: "127.0.0.1".into(), port, tls: false }
+fn local((port, task): (u16, Task)) -> (Target, Option<Task>) {
+    (Target { host: "127.0.0.1".into(), port, tls: false }, Some(task))
 }
 
 fn is_fatal(text: &str) -> bool {

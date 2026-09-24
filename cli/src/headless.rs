@@ -157,7 +157,7 @@ pub async fn run(path: Option<PathBuf>) -> Result<()> {
         let printer = tokio::spawn(print(name.clone(), rx));
         tasks.push(tokio::spawn(async move {
             let result = async {
-                let (opts, target, _) = tunnel::prepare(opts).await?;
+                let (opts, target, _, _local) = tunnel::prepare(opts).await?;
                 tunnel::run(opts, target, events, stop).await
             }.await;
             if let Err(err) = &result { log(&name, format!("{} {err:#}", style("failed:").red())); }

@@ -8,7 +8,7 @@ use tokio::net::{TcpListener, UdpSocket};
 use crate::api::ws_url;
 use crate::config::{normalize_url, Config};
 use crate::mux::{expect, Incoming, Mux, MuxEvents, MuxWriter, OpenMeta};
-use crate::session::{Events, JoinEvent, Stop};
+use crate::session::{Events, JoinEvent, Stop, Task};
 use crate::shape::Shape;
 use crate::tcp::{pump_tcp, UDP_IDLE};
 use crate::tunnel::server_hello;
@@ -150,8 +150,7 @@ pub async fn run(opts: Options, out: Events<JoinEvent>, mut stop: Stop) -> Resul
     let _ = out.send(JoinEvent::Forwarding { bind: opts.bind.clone(), port: local_port, tunnel_id, owner_online: online });
 
     let current: Current = Arc::new(Mutex::new(Some(mux.clone())));
-    tokio::spawn(accept_tcp(tcp, current.clone()));
-    tokio::spawn(accept_udp(udp, current.clone()));
+    let _listeners = (Task(tokio::spawn(accept_tcp(tcp, current.clone()))), Task(tokio::spawn(accept_udp(udp, current.clone()))));
 
     let mut backoff = 1u64;
     loop {
@@ -243,23 +242,21 @@ struct Flow { writer: MuxWriter, last_active: Arc<Mutex<Instant>> }
 async fn accept_udp(socket: UdpSocket, current: Current) {
     let socket = Arc::new(socket);
     let flows: Arc<Mutex<HashMap<SocketAddr, Flow>>> = Arc::new(Mutex::new(HashMap::new()));
-
-    let sweeper_flows = flows.clone();
-    tokio::spawn(async move {
-        loop {
-            tokio::time::sleep(Duration::from_secs(10)).await;
-            let expired: Vec<Flow> = {
-                let mut map = sweeper_flows.lock().unwrap();
-                let dead: Vec<SocketAddr> = map.iter().filter(|(_, f)| f.last_active.lock().unwrap().elapsed() > UDP_IDLE).map(|(a, _)| *a).collect();
-                dead.into_iter().filter_map(|a| map.remove(&a)).collect()
-            };
-            for flow in expired { flow.writer.close().await; }
-        }
-    });
-
+    let mut sweep = tokio::time::interval(Duration::from_secs(10));
     let mut buf = vec![0u8; 65535];
     loop {
-        let Ok((n, src)) = socket.recv_from(&mut buf).await else { continue };
+        let (n, src) = tokio::select! {
+            received = socket.recv_from(&mut buf) => match received { Ok(pair) => pair, Err(_) => continue },
+            _ = sweep.tick() => {
+                let expired: Vec<Flow> = {
+                    let mut map = flows.lock().unwrap();
+                    let dead: Vec<SocketAddr> = map.iter().filter(|(_, f)| f.last_active.lock().unwrap().elapsed() > UDP_IDLE).map(|(a, _)| *a).collect();
+                    dead.into_iter().filter_map(|a| map.remove(&a)).collect()
+                };
+                for flow in expired { flow.writer.close().await; }
+                continue;
+            }
+        };
         let existing = {
             let map = flows.lock().unwrap();
             map.get(&src).map(|f| { *f.last_active.lock().unwrap() = Instant::now(); f.writer.clone() })

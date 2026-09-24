@@ -1,3 +1,4 @@
+use crate::session::Task;
 use anyhow::{bail, Result};
 use bytes::Bytes;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty};
@@ -76,12 +77,17 @@ impl Table {
     }
 }
 
-pub async fn start(routes: Vec<Route>) -> Result<u16> {
+pub async fn start(routes: Vec<Route>) -> Result<(u16, Task)> {
     let mut mounted = Vec::new();
+    let mut servers = Vec::new();
     for route in routes {
         let (target, strip) = match route.target {
             RouteTarget::Addr(target) => (target, false),
-            RouteTarget::Dir(dir) => (Target { host: "127.0.0.1".into(), port: serve::start(dir).await?, tls: false }, true),
+            RouteTarget::Dir(dir) => {
+                let (port, server) = serve::start(dir).await?;
+                servers.push(server);
+                (Target { host: "127.0.0.1".into(), port, tls: false }, true)
+            }
         };
         mounted.push(Mounted { prefix: route.prefix, target, strip });
     }
@@ -89,7 +95,8 @@ pub async fn start(routes: Vec<Route>) -> Result<u16> {
 
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let port = listener.local_addr()?.port();
-    tokio::spawn(async move {
+    let task = tokio::spawn(async move {
+        let _servers = servers;
         loop {
             let Ok((socket, _)) = listener.accept().await else { continue };
             let table = table.clone();
@@ -99,7 +106,7 @@ pub async fn start(routes: Vec<Route>) -> Result<u16> {
             });
         }
     });
-    Ok(port)
+    Ok((port, Task(task)))
 }
 
 type Body = BoxBody<Bytes, hyper::Error>;
