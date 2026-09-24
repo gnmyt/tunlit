@@ -11,9 +11,9 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{connect_async_tls_with_config, Connector};
 
-pub const WINDOW: u32 = 256 * 1024;
-pub const CHUNK: usize = 32 * 1024;
-const ACK_THRESHOLD: u32 = 64 * 1024;
+pub const WINDOW: u32 = 1024 * 1024;
+pub const CHUNK: usize = 64 * 1024;
+const ACK_THRESHOLD: u32 = 256 * 1024;
 const PING_INTERVAL: Duration = Duration::from_secs(20);
 const DEAD_AFTER: Duration = Duration::from_secs(60);
 

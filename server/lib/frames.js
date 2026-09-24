@@ -1,7 +1,7 @@
 const TYPES = { OPEN: 0x01, DATA: 0x02, CLOSE: 0x03, WINDOW_UPDATE: 0x04, DATAGRAM: 0x05, RESET: 0x06 };
 const HEADER_SIZE = 5;
-const WINDOW_SIZE = 256 * 1024;
-const CHUNK_SIZE = 32 * 1024;
+const WINDOW_SIZE = 1024 * 1024;
+const CHUNK_SIZE = 64 * 1024;
 const MAX_DATAGRAM = 65507;
 
 const encode = (type, streamId, payload) => {
