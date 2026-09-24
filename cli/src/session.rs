@@ -130,6 +130,7 @@ pub enum TunnelEvent {
     Connection(Connection),
     Access(String),
     Reconnecting { seconds: u64, reason: Option<String> },
+    Update(String),
     Stopped,
     Ended(String),
 }

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use console::style;
 use dialoguer::{Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -14,6 +14,7 @@ use crate::session::{self, Events, JoinEvent, Online, Request, Stop, TunnelEvent
 use crate::shape::Shape;
 use crate::tui;
 use crate::tunnel::{self, Options};
+use crate::update;
 
 fn ok() -> console::StyledObject<&'static str> { style("✓").green().bold() }
 fn warn() -> console::StyledObject<&'static str> { style("!").yellow().bold() }
@@ -47,14 +48,18 @@ impl Printer {
     }
 }
 
-fn session<E>() -> (Events<E>, UnboundedReceiver<E>, Stop) {
-    let (events, rx) = session::channel();
+fn stop_on_ctrl_c() -> Stop {
     let (handle, stop) = Stop::new();
     tokio::spawn(async move {
         let _ = tokio::signal::ctrl_c().await;
         handle.stop();
     });
-    (events, rx, stop)
+    stop
+}
+
+fn session<E>() -> (Events<E>, UnboundedReceiver<E>, Stop) {
+    let (events, rx) = session::channel();
+    (events, rx, stop_on_ctrl_c())
 }
 
 async fn printed<E: Send + 'static>(
@@ -116,12 +121,14 @@ pub async fn tunnel(opts: Options, plain: bool) -> Result<()> {
     let (server_url, token) = cfg.require_auth()?;
     let (opts, target, label, _local) = tunnel::prepare(opts).await?;
     let shape = opts.shape.clone();
+    let (events, rx) = session::channel();
+    let hint = events.clone();
+    let _check = session::Task(tokio::spawn(async move { if let Some(version) = update::check().await { let _ = hint.send(TunnelEvent::Update(version)); } }));
 
     if !plain && std::io::stdout().is_terminal() {
         let api = crate::api::ApiClient::new(&server_url, Some(&token), cfg.accept_invalid_certs)?;
         let me = api.whoami().await?;
         let ctx = tui::Context { server_url, account: me.label(), target: label, network: shape.summary(), tcp: opts.mode == "tcp" };
-        let (events, rx) = session::channel();
         let (handle, stop) = Stop::new();
         let ui = tokio::spawn(tui::run(rx, handle, ctx));
         let result = tunnel::run(opts, target, events, stop).await;
@@ -132,7 +139,7 @@ pub async fn tunnel(opts: Options, plain: bool) -> Result<()> {
         return result;
     }
 
-    let (events, rx, stop) = session();
+    let stop = stop_on_ctrl_c();
     printed(rx, move |printer, event| match event {
         TunnelEvent::Connecting => printer.busy("Connecting to server...".into()),
         TunnelEvent::Online(online) => { printer.idle(); print_ready(&online, &label, &server_url, &shape); }
@@ -146,6 +153,7 @@ pub async fn tunnel(opts: Options, plain: bool) -> Result<()> {
         TunnelEvent::Connection(connection) => println!("{}", style(connection.line()).dim()),
         TunnelEvent::Access(summary) => println!("{} {}", style("Access:").dim(), style(summary).yellow()),
         TunnelEvent::Reconnecting { seconds, reason } => printer.reconnecting(seconds, reason),
+        TunnelEvent::Update(version) => println!("{} tunlit {version} is available, run {}", style("↑").cyan(), style("tunlit update").cyan()),
         TunnelEvent::Stopped => { printer.idle(); println!("\n{} Tunnel closed", ok()); }
         TunnelEvent::Ended(reason) => { printer.idle(); println!("{} Tunnel ended: {}", ok(), style(reason).dim()); }
     }, tunnel::run(opts, target, events, stop)).await
@@ -232,6 +240,24 @@ pub async fn list() -> Result<()> {
             style(target).dim());
     }
     if rows.iter().any(|row| row[0].ends_with('*')) { println!("{}", style("* persistent").dim()); }
+    Ok(())
+}
+
+pub async fn update() -> Result<()> {
+    let install = update::detect();
+    let latest = update::latest().await.context("Could not reach GitHub to look for releases")?;
+    if !update::newer(&latest) {
+        println!("{} tunlit {} is the latest version", ok(), style(update::CURRENT).cyan());
+        return Ok(());
+    }
+    println!("tunlit {} → {}", style(update::CURRENT).dim(), style(&latest).cyan().bold());
+    if install == update::Install::Managed {
+        println!("  This tunlit was installed by a package manager and is updated through it.");
+        return Ok(());
+    }
+    update::apply(&latest, &install, false).await?;
+    if install == update::Install::Msi { println!("{} The installer is running, tunlit {latest} is ready in a moment", ok()); }
+    else { println!("{} Updated to tunlit {latest}", ok()); }
     Ok(())
 }
 

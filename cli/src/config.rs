@@ -7,6 +7,8 @@ pub struct Config {
     #[serde(default)] pub server_url: Option<String>,
     #[serde(default)] pub device_token: Option<String>,
     #[serde(default)] pub accept_invalid_certs: bool,
+    #[serde(default)] pub update_checked_at: u64,
+    #[serde(default)] pub update_latest: Option<String>,
 }
 
 impl Config {

@@ -122,6 +122,16 @@ chmod +x tunlit && sudo mv tunlit /usr/local/bin/
 Swap the file name for the build you need: `tunlit-macos-arm64`, `tunlit-macos-x64`, `tunlit-linux-x64` or
 `tunlit-linux-arm64`.
 
+### Updating
+
+```sh
+tunlit update
+```
+
+Replaces a plain binary in place, or downloads and runs the new installer on Windows. When tunlit came from a package
+manager it says so and leaves updating to it. The CLI checks for a new release once a day and mentions
+it in the terminal UI, the desktop app shows an **Update and restart** button under Settings.
+
 Then log in:
 
 ```sh

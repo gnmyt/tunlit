@@ -17,6 +17,7 @@ mod shape;
 mod tcp;
 mod tui;
 mod tunnel;
+mod update;
 
 use clap::{Parser, Subcommand};
 use console::style;
@@ -86,6 +87,7 @@ enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
+    Update,
     Links {
         #[command(subcommand)]
         action: LinkAction,
@@ -141,6 +143,7 @@ enum ConfigAction {
 }
 
 fn main() {
+    if cfg!(windows) { update::cleanup(); }
     let cli = Cli::parse();
     let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(4).enable_all().build().unwrap_or_else(|err| fail(err.into()));
 
@@ -191,6 +194,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
                 Ok(())
             }
         },
+        Commands::Update => cli::update().await,
         Commands::Config { action } => match action {
             ConfigAction::Set { key, value } => config::set(&key, &value),
             ConfigAction::Get { key } => config::get(&key),

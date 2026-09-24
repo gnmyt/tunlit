@@ -53,6 +53,7 @@ struct State {
     table: TableState,
     copied: bool,
     notice: Option<(String, Instant)>,
+    update: Option<String>,
     frame: usize,
     ended: Option<String>,
 }
@@ -96,6 +97,7 @@ impl State {
             }
             TunnelEvent::Access(summary) => { self.access = Some(summary); self.notice("Access rules updated"); }
             TunnelEvent::Reconnecting { seconds, reason } => self.status = Status::Reconnecting(seconds, reason),
+            TunnelEvent::Update(version) => self.update = Some(version),
             TunnelEvent::Stopped => {}
             TunnelEvent::Ended(reason) => self.ended = Some(reason),
         }
@@ -178,11 +180,14 @@ fn header(state: &State, area: Rect, frame: &mut Frame) {
     };
     let notice = state.notice.as_ref().filter(|(_, at)| at.elapsed() < Duration::from_secs(3)).map(|(text, _)| text.clone());
     let right = notice.map(|text| Span::styled(text, Style::default().fg(TEAL_BRIGHT))).unwrap_or(status);
-    let left = vec![
+    let mut left = vec![
         Span::styled("tunl", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
         Span::styled("it", Style::default().fg(TEAL).add_modifier(Modifier::BOLD)),
         Span::styled(format!("  v{}", env!("CARGO_PKG_VERSION")), Style::default().fg(MUTED)),
     ];
+    if let Some(version) = &state.update {
+        left.push(Span::styled(format!("  ↑ v{version} available · tunlit update"), Style::default().fg(AMBER)));
+    }
     let used: usize = left.iter().map(|span| span.width()).sum::<usize>() + right.width();
     let mut spans = left;
     spans.push(Span::raw(" ".repeat((area.width as usize).saturating_sub(used))));
@@ -369,7 +374,7 @@ pub async fn run(mut rx: UnboundedReceiver<TunnelEvent>, stop: StopHandle, ctx: 
     let mut state = State {
         ctx, status: Status::Connecting, online: None, access: None, requests: VecDeque::new(), connections: VecDeque::new(),
         samples: VecDeque::new(), total: 0, errors: 0, open: 0, bytes_in: 0, bytes_out: 0, table: TableState::default(),
-        copied: false, notice: None, frame: 0, ended: None,
+        copied: false, notice: None, update: None, frame: 0, ended: None,
     };
     let mut terminal = ratatui::init();
     let mut keys = EventStream::new();

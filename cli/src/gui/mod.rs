@@ -75,6 +75,7 @@ pub fn launch(runtime: Handle, link: Option<String>, hidden: bool) -> Result<()>
     };
     state.stop_all();
     instance::release();
+    if state.relaunch { let _ = std::process::Command::new(std::env::current_exe()?).arg("gui").spawn(); }
     result
 }
 

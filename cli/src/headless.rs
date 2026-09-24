@@ -120,6 +120,7 @@ async fn print(name: String, mut rx: UnboundedReceiver<TunnelEvent>) {
                 Some(reason) => log(&name, format!("reconnecting in {seconds}s ({reason})")),
                 None => log(&name, "connection lost, reconnecting"),
             },
+            TunnelEvent::Update(version) => log(&name, format!("tunlit {version} is available, run tunlit update")),
             TunnelEvent::Stopped => log(&name, "stopped"),
             TunnelEvent::Ended(reason) => log(&name, format!("ended: {reason}")),
         }

@@ -12,6 +12,7 @@ use crate::connect;
 use crate::qr;
 use crate::session::{self, Connection, JoinEvent, Online, Request, Stop, StopHandle, Task, TunnelEvent};
 use crate::tunnel::{self, connect_target, Options, Target};
+use crate::update;
 use super::{format, hide_by_closing, theme, widgets, Repaint, Wake};
 
 const MAX_REQUESTS: usize = 500;
@@ -34,6 +35,8 @@ pub enum Msg {
     Info(Result<ServerInfo, String>),
     Me(Option<Me>),
     Invited(Result<String, String>),
+    Update(Option<String>),
+    Updated(Result<(), String>),
     TunnelProbe(u64, Option<String>),
     FolderPicked(Option<PathBuf>),
 }
@@ -148,6 +151,11 @@ pub struct State {
     pub joins: Vec<JoinCard>,
     next_id: u64,
     pub me: Option<Me>,
+    pub update: Option<String>,
+    pub updating: bool,
+    pub checked_update: bool,
+    pub managed: bool,
+    pub relaunch: bool,
     pub start_hidden: bool,
     pub hotkey: bool,
     pub autostart: bool,
@@ -168,11 +176,23 @@ impl State {
         let mut state = Self {
             runtime, mailbox: Mailbox { tx, repaint }, rx, page: Page::Tunnels, cfg, server_info: None, tunnels: Vec::new(), joins: Vec::new(), next_id: 1,
             login, new_tunnel: NewTunnelForm::default(), connect: ConnectForm::default(),
-            me: None, start_hidden: false, hotkey: false, autostart: super::autostart::enabled(), toasts: Vec::new(), has_tray, quitting: false, monitor: None,
+            me: None, update: None, updating: false, checked_update: false, managed: update::detect() == update::Install::Managed, relaunch: false, start_hidden: false, hotkey: false, autostart: super::autostart::enabled(), toasts: Vec::new(), has_tray, quitting: false, monitor: None,
         };
         state.fetch_info();
         state.fetch_me();
+        let mailbox = state.mailbox.clone();
+        state.runtime.spawn(async move { mailbox.send(Msg::Update(update::check().await)); });
         state
+    }
+
+    pub fn start_update(&mut self) {
+        let Some(version) = self.update.clone() else { return };
+        self.updating = true;
+        let mailbox = self.mailbox.clone();
+        self.runtime.spawn(async move {
+            let result = update::apply(&version, &update::detect(), true).await.map_err(|err| format!("{err:#}"));
+            mailbox.send(Msg::Updated(result));
+        });
     }
 
     pub fn linked(&self) -> bool { self.cfg.device_token.is_some() && self.cfg.server_url().is_some() }
@@ -375,6 +395,9 @@ impl State {
             Msg::Me(me) => self.me = me,
             Msg::Invited(Ok(message)) => { self.reload_config(); self.fetch_info(); self.toast(message); }
             Msg::Invited(Err(message)) => self.toast_error(message),
+            Msg::Update(version) => { self.update = version; self.checked_update = true; }
+            Msg::Updated(Ok(_)) => { self.relaunch = true; self.quitting = true; ctx.send_viewport_cmd(egui::ViewportCommand::Close); }
+            Msg::Updated(Err(message)) => { self.updating = false; self.toast_error(message); }
             Msg::TunnelProbe(id, warning) => { if let Some(card) = self.tunnel_mut(id) { card.probe = warning; } }
             Msg::Join(id, event) => self.handle_join(id, event),
             Msg::JoinFailed(id, message, port_in_use) => self.fail_join(id, message, port_in_use),
@@ -429,6 +452,7 @@ impl State {
                 card.requests.push_front(LoggedRequest { request, at: Instant::now() });
             }
             TunnelEvent::Reconnecting { seconds, reason } => card.state = TunnelState::Reconnecting { seconds, reason },
+            TunnelEvent::Update(version) => self.update = Some(version),
             TunnelEvent::Stopped => self.stop_tunnel(id),
             TunnelEvent::Ended(reason) => { self.stop_tunnel(id); toast = Some(format!("Tunnel ended: {reason}")); }
         }

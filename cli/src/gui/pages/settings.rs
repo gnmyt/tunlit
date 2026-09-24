@@ -88,6 +88,21 @@ impl Window<'_> {
                         });
                     }
                 });
+                ui.add_space(4.0);
+                let mut start_update = false;
+                match (state.update.clone(), state.managed) {
+                    (Some(version), true) => { widgets::text(ui, format!("{version} is available through your package manager"), 12.5, theme::WARNING); }
+                    (Some(version), false) => {
+                        ui.horizontal(|ui| {
+                            widgets::text(ui, format!("{version} is available"), 12.5, theme::WARNING);
+                            ui.add_enabled_ui(!state.updating, |ui| {
+                                if widgets::button(ui, if state.updating { "Updating..." } else { "Update and restart" }, ButtonKind::Primary).clicked() { start_update = true; }
+                            });
+                        });
+                    }
+                    (None, _) => { widgets::text(ui, if state.checked_update { "Up to date" } else { "Checking for updates..." }, 12.5, theme::MUTED); }
+                }
+                if start_update { state.start_update(); }
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     if widgets::button(ui, "Documentation", ButtonKind::Ghost).clicked() { ui.ctx().open_url(egui::OpenUrl::new_tab("https://docs.tunlit.dev/cli")); }

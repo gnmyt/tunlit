@@ -244,6 +244,15 @@ tunlit config set accept-invalid-certs true
 Keys: `server-url`, `device-token` (shown as `(set)`), `accept-invalid-certs` (for self-signed certificates on the
 server).
 
+### Update
+
+```sh
+tunlit update
+```
+
+Downloads the latest release and replaces the binary, or runs the new installer on Windows. Installations from a
+package manager are left to it.
+
 ### Logout
 
 ```sh
