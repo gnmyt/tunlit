@@ -1,7 +1,7 @@
 import "./styles.sass";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, Pencil, RotateCcw, X } from "lucide-react";
+import { Ban, ExternalLink, Pencil, Play, RotateCcw, X } from "lucide-react";
 import Button from "@/common/components/Button";
 import CopyButton from "@/common/components/CopyButton";
 import Flag from "@/common/components/Flag";
@@ -93,7 +93,7 @@ const Intelligence = ({ intel, ip }) => {
     );
 };
 
-export const RequestPanel = ({ tunnelId, entry, onClose }) => {
+export const RequestPanel = ({ tunnelId, entry, onClose, onSettle }) => {
     const { sendToast } = useToast();
     const { serverInfo } = useUser();
     const [detail, setDetail] = useState(null);
@@ -102,16 +102,19 @@ export const RequestPanel = ({ tunnelId, entry, onClose }) => {
     const [editing, setEditing] = useState(false);
     const [replaying, setReplaying] = useState(false);
     const ws = entry.kind === "ws";
+    const held = !!onSettle;
+    const heldResponse = held && entry.phase === "response";
 
     useEffect(() => {
         setDetail(null);
         setError(null);
         setEditing(false);
         setTab("request");
+        if (held) return setDetail(entry);
         getRequest(`tunnels/${tunnelId}/requests/${entry.id}`)
             .then(data => setDetail(data.request))
             .catch(failure => setError(failure.message));
-    }, [tunnelId, entry.id]);
+    }, [tunnelId, entry, held]);
 
     useEffect(() => {
         document.body.classList.add("panel-open");
@@ -140,16 +143,25 @@ export const RequestPanel = ({ tunnelId, entry, onClose }) => {
     const scheme = serverInfo?.publicUrl?.startsWith("http://") ? "http" : "https";
     const url = `${scheme}://${entry.host}${entry.path}`;
     const intel = entry.intel;
-    const tabs = [["request", "Request"], ws ? ["frames", "Messages"] : ["response", "Response"], ["intel", "IP Intelligence"]];
+    const tabs = held
+        ? [["request", "Request"], ...(heldResponse ? [["response", "Response"]] : [])]
+        : [["request", "Request"], ws ? ["frames", "Messages"] : ["response", "Response"], ["intel", "IP Intelligence"]];
 
     return createPortal(
         <aside className="request-panel">
             <header className="panel-head">
                 <span className="panel-method">{ws ? "WS" : entry.method}</span>
                 <span className="panel-path" title={entry.path}>{entry.path}</span>
-                <span className={`status ${statusClass(entry.status)}`}>{entry.status}</span>
+                {held
+                    ? <span className="status warn">{heldResponse ? entry.status : "paused"}</span>
+                    : <span className={`status ${statusClass(entry.status)}`}>{entry.status}</span>}
                 <div className="panel-actions">
-                    {!ws && !editing && <>
+                    {held && !editing && <>
+                        <Button type="ghost" icon={Pencil} title="Edit and continue" onClick={() => { setEditing(true); if (heldResponse) setTab("response"); }} />
+                        <Button type="ghost" icon={Play} title="Continue" onClick={() => onSettle({})} />
+                        <Button type="ghost" icon={Ban} title="Drop" onClick={() => onSettle({ action: "drop" })} />
+                    </>}
+                    {!held && !ws && !editing && <>
                         <Button type="ghost" icon={Pencil} title="Edit and replay" onClick={() => setEditing(true)} disabled={!detail} />
                         <Button type="ghost" icon={RotateCcw} title="Replay" onClick={() => replay()}
                                 disabled={replaying || !detail || detail.request.truncated} />
@@ -163,15 +175,16 @@ export const RequestPanel = ({ tunnelId, entry, onClose }) => {
                 {error && <p className="panel-error">{error}</p>}
 
                 {detail && editing && (
-                    <RequestEdit entry={entry} detail={detail} busy={replaying} onSend={replay} onCancel={() => setEditing(false)} />
+                    <RequestEdit entry={entry} detail={detail} busy={replaying} onSend={held ? onSettle : replay} onCancel={() => setEditing(false)}
+                                 held={held} part={heldResponse ? "response" : "request"} />
                 )}
 
                 {detail && !editing && <>
                     <div className="panel-card">
                         <Rows items={[
                             ["URL", <a key="url" className="mono" href={url} target="_blank" rel="noreferrer">{url} <ExternalLink /></a>, url],
-                            ["Status", <span key="status" className={`status ${statusClass(entry.status)}`}>{entry.status}</span>, String(entry.status)],
-                            ["Duration", `${entry.duration} ms`],
+                            ["Status", held && !heldResponse ? <span key="status" className="status warn">paused</span> : <span key="status" className={`status ${statusClass(entry.status)}`}>{entry.status}</span>, held && !heldResponse ? "paused" : String(entry.status)],
+                            ["Duration", held ? null : `${entry.duration} ms`],
                             ["Client", <span key="client" className="mono panel-client"><Flag code={intel?.country} />{entry.ip}</span>, entry.ip],
                             ["Network", intel?.private ? "Private network" : [intel?.org, intel?.country && countryName(intel.country)].filter(Boolean).join(" · ")],
                             ["Time", new Date(entry.time).toLocaleString()],

@@ -1,5 +1,6 @@
 const { endSession } = require("../lib/registry");
 const { replayRequest } = require("../lib/proxy");
+const { serialize } = require("../lib/breakpoints");
 const { buildPolicy, describePolicy, summarizePolicy } = require("../lib/access");
 
 const announceAccess = tunnel => {
@@ -91,9 +92,25 @@ module.exports.updateAccess = async (registry, access, id, input, viewer) => {
 
 const METHOD = /^[A-Z]{3,10}$/;
 
+const editedPart = (stored, input) => {
+    const part = { ...stored };
+    if (input.headers !== undefined) {
+        if (!Array.isArray(input.headers) || input.headers.some(pair => !Array.isArray(pair) || pair.length !== 2)) {
+            throw new Error("Headers must be a list of [name, value] pairs");
+        }
+        part.headers = input.headers.map(([name, value]) => [String(name).trim(), String(value).trim()]).filter(([name]) => name);
+    }
+    if (input.body !== undefined) {
+        const body = Buffer.from(String(input.body), "utf8");
+        part.body = body.length ? body.toString("base64") : null;
+        part.bytes = body.length;
+        part.truncated = false;
+    }
+    return part;
+};
+
 const edited = (stored, input) => {
-    const request = { ...stored.request };
-    const out = { ...stored, request };
+    const out = { ...stored, request: editedPart(stored.request, input) };
     if (input.method !== undefined) {
         const method = String(input.method).trim().toUpperCase();
         if (!METHOD.test(method)) throw new Error("Invalid method");
@@ -104,20 +121,20 @@ const edited = (stored, input) => {
         if (!path.startsWith("/")) throw new Error("The path must start with /");
         out.path = path;
     }
-    if (input.headers !== undefined) {
-        if (!Array.isArray(input.headers) || input.headers.some(pair => !Array.isArray(pair) || pair.length !== 2)) {
-            throw new Error("Headers must be a list of [name, value] pairs");
-        }
-        request.headers = input.headers.map(([name, value]) => [String(name).trim(), String(value).trim()]).filter(([name]) => name);
-    }
-    if (input.body !== undefined) {
-        const body = Buffer.from(String(input.body), "utf8");
-        request.body = body.length ? body.toString("base64") : null;
-        request.bytes = body.length;
-        request.truncated = false;
+    return out;
+};
+
+const editedResponse = (stored, input) => {
+    const out = editedPart(stored, input);
+    if (input.status !== undefined) {
+        const status = Number(input.status);
+        if (!Number.isInteger(status) || status < 100 || status > 599) throw new Error("Invalid status");
+        out.status = status;
     }
     return out;
 };
+
+const bufferOf = part => (part.body ? Buffer.from(part.body, "base64") : Buffer.alloc(0));
 
 module.exports.replay = async (req, id, requestId, input) => {
     const tunnel = req.registry.get(id);
@@ -135,6 +152,43 @@ module.exports.replay = async (req, id, requestId, input) => {
     if (request.request.truncated) return { code: 400, message: "The request body was too large to store" };
     const status = await replayRequest(tunnel, request, req.onRequest(tunnel));
     return { message: `Replayed, ${status}`, status };
+};
+
+module.exports.getBreakpoints = (req, id) => {
+    if (!mayTouch(req.registry.get(id), req.session)) return { code: 404, message: "Tunnel not found" };
+    return { rules: req.breakpoints.rulesFor(id), held: req.breakpoints.list(id), now: Date.now() };
+};
+
+module.exports.setBreakpoints = (req, id, input) => {
+    if (!mayTouch(req.registry.get(id), req.session)) return { code: 404, message: "Tunnel not found" };
+    try {
+        return { message: "Breakpoints updated", rules: req.breakpoints.setRules(id, input.rules) };
+    } catch (err) {
+        return { code: 400, message: err.message };
+    }
+};
+
+module.exports.resolveBreakpoint = (req, id, holdId, input) => {
+    if (!mayTouch(req.registry.get(id), req.session)) return { code: 404, message: "Tunnel not found" };
+    const held = req.breakpoints.get(id, holdId);
+    if (!held) return { code: 404, message: "That request is no longer waiting" };
+    if (input.action === "drop") {
+        req.breakpoints.settle(holdId, { action: "drop" });
+        return { message: "Dropped" };
+    }
+    const stored = serialize(held);
+    try {
+        if (held.phase === "response") {
+            const response = editedResponse(stored.response, input);
+            req.breakpoints.settle(holdId, { action: "continue", status: response.status, headers: response.headers, body: bufferOf(response) });
+        } else {
+            const request = edited(stored, input);
+            req.breakpoints.settle(holdId, { action: "continue", method: request.method, path: request.path, headers: request.request.headers, body: bufferOf(request.request) });
+        }
+    } catch (err) {
+        return { code: 400, message: err.message };
+    }
+    return { message: "Continued" };
 };
 
 module.exports.closeTunnel = (registry, id, viewer) => {

@@ -1,5 +1,7 @@
 const { Router } = require("../utils/router");
-const { listTunnels, closeTunnel, getTunnel, disconnectClient, disconnectAllClients, updateAccess, replay, mayTouch } = require("../controllers/tunnels");
+const { listTunnels, closeTunnel, getTunnel, disconnectClient, disconnectAllClients, updateAccess, replay, mayTouch, getBreakpoints, setBreakpoints, resolveBreakpoint } = require("../controllers/tunnels");
+
+const reply = (res, result) => (result.code ? res.status(result.code).json(result) : res.json(result));
 const { toHar } = require("../lib/har");
 
 const app = Router();
@@ -94,6 +96,12 @@ app.post("/:id/requests/:requestId/replay", async (req, res) => {
     if (result.code) return res.status(result.code).json(result);
     res.json(result);
 });
+
+app.get("/:id/breakpoints", (req, res) => reply(res, getBreakpoints(req, req.params.id.toLowerCase())));
+
+app.put("/:id/breakpoints", (req, res) => reply(res, setBreakpoints(req, req.params.id.toLowerCase(), req.body || {})));
+
+app.post("/:id/breakpoints/:holdId", (req, res) => reply(res, resolveBreakpoint(req, req.params.id.toLowerCase(), req.params.holdId, req.body || {})));
 
 app.get("/:id/stats", (req, res) => {
     const id = req.params.id.toLowerCase();

@@ -21,7 +21,7 @@ const ACME_PREFIX = "/.well-known/acme-challenge/";
 
 const FLAGS = ["tor", "vpn", "datacenter", "blocklisted"];
 
-const createRouter = ({ config, auth, registry, traffic, visitors, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, control }) => {
+const createRouter = ({ config, auth, registry, traffic, visitors, breakpoints, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, control }) => {
     const announce = (tunnel, entry) => {
         if (!tunnel.session || tunnel.session.closed) return;
         const { request, response, ...rest } = entry;
@@ -113,7 +113,7 @@ const createRouter = ({ config, auth, registry, traffic, visitors, access, stats
 
     const handleUi = async (req, res, info, pathname) => {
         if (pathname === API_PREFIX || pathname.startsWith(`${API_PREFIX}/`)) {
-            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, visitors, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, onRequest, info });
+            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, visitors, breakpoints, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, onRequest, info });
             if (!handled) sendJson(res, 404, { error: "not_found" });
             return;
         }
@@ -136,7 +136,7 @@ const createRouter = ({ config, auth, registry, traffic, visitors, access, stats
         const gate = await denial(req, res, info, tunnel);
         if (gate?.deny) return gate.deny();
         return proxyRequest(req, res, tunnel, info,
-            { pathMode: true, inject: injectedScript(id), onRequest: onRequest(tunnel), setCookie: gate?.cookie });
+            { pathMode: true, inject: injectedScript(id), onRequest: onRequest(tunnel), setCookie: gate?.cookie, breakpoints });
     };
 
     const hostFor = hostname => {
@@ -204,7 +204,7 @@ const createRouter = ({ config, auth, registry, traffic, visitors, access, stats
             const gate = await denial(req, res, info, tunnel);
             if (gate?.deny) return gate.deny();
             return proxyRequest(req, res, tunnel, info,
-                { pathMode: false, inject: null, onRequest: onRequest(tunnel), setCookie: gate?.cookie });
+                { pathMode: false, inject: null, onRequest: onRequest(tunnel), setCookie: gate?.cookie, breakpoints });
         }
 
         if (host.kind !== "base") return noTunnel(req, res, SELECT_PAGE);

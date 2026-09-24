@@ -3,10 +3,11 @@ import { useCallback, useEffect, useState } from "react";
 import Button from "@/common/components/Button";
 import Flag from "@/common/components/Flag";
 import ActionConfirmDialog from "@/common/components/ActionConfirmDialog";
-import { deleteRequest, getRequest } from "@/common/utils/RequestUtil.js";
+import { deleteRequest, getRequest, postRequest } from "@/common/utils/RequestUtil.js";
 import { useToast } from "@/common/contexts/toast.js";
-import { Activity, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, Pause, Play, Search, Trash2, X } from "lucide-react";
+import { Activity, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, CirclePause, Download, Pause, Play, Search, Trash2, X } from "lucide-react";
 import RequestPanel from "./components/RequestPanel";
+import BreakpointsBar, { PhaseIcon } from "./components/BreakpointsBar";
 import { formatTime, statusClass } from "./format.js";
 import { countryName } from "@/common/utils/country.js";
 
@@ -32,6 +33,8 @@ export const TrafficTable = ({ id, heading, focus }) => {
     const [filter, setFilter] = useState(EMPTY);
     const [search, setSearch] = useState("");
     const [sort, setSort] = useState({ by: "time", order: "desc" });
+    const [breakpoints, setBreakpoints] = useState({ rules: [], held: [], now: 0 });
+    const [showBreakpoints, setShowBreakpoints] = useState(false);
 
     useEffect(() => {
         const timer = setTimeout(() => setFilter(current => ({ ...current, search: search.trim() })), 250);
@@ -65,6 +68,38 @@ export const TrafficTable = ({ id, heading, focus }) => {
         return () => clearInterval(poll);
     }, [load, paused, page]);
 
+    const loadBreakpoints = useCallback(async () => {
+        try {
+            setBreakpoints(await getRequest(`tunnels/${id}/breakpoints`));
+        } catch {
+            return;
+        }
+    }, [id]);
+
+    useEffect(() => {
+        loadBreakpoints();
+        const poll = setInterval(loadBreakpoints, POLL_INTERVAL);
+        return () => clearInterval(poll);
+    }, [loadBreakpoints]);
+
+    useEffect(() => {
+        if (selected?.held && !breakpoints.held.some(entry => entry.id === selected.id)) setSelected(null);
+    }, [breakpoints.held, selected]);
+
+    const pick = entry => setSelected({ ...entry, held: true });
+
+    const settle = async (held, input) => {
+        try {
+            const result = await postRequest(`tunnels/${id}/breakpoints/${held.id}`, input);
+            sendToast("Success", result.message);
+            setSelected(null);
+            loadBreakpoints();
+            load();
+        } catch (error) {
+            sendToast("Error", error.message);
+        }
+    };
+
     const clear = async () => {
         try {
             const result = await deleteRequest(`tunnels/${id}/requests`);
@@ -84,7 +119,8 @@ export const TrafficTable = ({ id, heading, focus }) => {
 
     return (
         <section className="traffic">
-            {selected && <RequestPanel tunnelId={id} entry={selected} onClose={() => setSelected(null)} />}
+            {selected && <RequestPanel tunnelId={id} entry={selected} onClose={() => setSelected(null)}
+                                       onSettle={selected.held ? input => settle(selected, input) : null} />}
             <ActionConfirmDialog open={clearing} setOpen={setClearing} onConfirm={clear} title="Clear all requests?"
                                  text="The stored requests and messages of this tunnel are deleted." confirmText="Clear" />
             <div className="traffic-head">
@@ -97,9 +133,13 @@ export const TrafficTable = ({ id, heading, focus }) => {
                     </a>
                     <Button type="ghost" icon={Trash2} text="Clear" buttonType="button" onClick={() => setClearing(true)} />
                 </>}
+                <Button type="ghost" icon={CirclePause} text={breakpoints.rules.length ? `Breakpoints · ${breakpoints.rules.length}` : "Breakpoints"}
+                        buttonType="button" onClick={() => setShowBreakpoints(!showBreakpoints)} />
                 <Button type="ghost" icon={paused ? Play : Pause} text={paused ? "Resume" : "Pause"}
                         buttonType="button" onClick={() => setPaused(!paused)} />
             </div>
+
+            {showBreakpoints && <BreakpointsBar tunnelId={id} rules={breakpoints.rules} onChanged={loadBreakpoints} />}
 
             {loaded && (total > 0 || filtering) && (
                 <div className="traffic-filters">
@@ -132,7 +172,7 @@ export const TrafficTable = ({ id, heading, focus }) => {
                 </div>
             )}
 
-            {loaded && requests.length === 0
+            {loaded && requests.length === 0 && breakpoints.held.length === 0
                 ? <div className="traffic-empty">
                     <Activity size={20} />
                     <p>{filtering ? "Nothing matches." : "No requests yet."}</p>
@@ -150,6 +190,17 @@ export const TrafficTable = ({ id, heading, focus }) => {
                             </tr>
                         </thead>
                         <tbody>
+                            {breakpoints.held.map(entry => (
+                                <tr key={entry.id} className={`held${selected?.id === entry.id ? " selected" : ""}`} tabIndex={0}
+                                    onClick={() => pick(entry)} onKeyDown={event => event.key === "Enter" && pick(entry)}>
+                                    <td className="mono dim">{formatTime(entry.time)}</td>
+                                    <td className="mono client">{entry.ip}</td>
+                                    <td className="mono"><PhaseIcon phase={entry.phase} />{entry.method}</td>
+                                    <td className="mono path" title={entry.path}>{entry.path}</td>
+                                    <td><span className="status warn">{entry.phase === "response" ? entry.status : "paused"}</span></td>
+                                    <td className="mono dim">{Math.round((breakpoints.now - entry.time) / 1000)}s</td>
+                                </tr>
+                            ))}
                             {requests.map(entry => (
                                 <tr key={entry.id} className={selected?.id === entry.id ? "selected" : ""} tabIndex={0}
                                     onClick={() => setSelected(entry)} onKeyDown={event => event.key === "Enter" && setSelected(entry)}>

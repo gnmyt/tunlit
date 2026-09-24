@@ -161,48 +161,122 @@ const decoderFor = encoding => {
     }
 };
 
-const observe = (req, info, onRequest) => {
-    if (!onRequest) return;
-    const startedAt = Date.now();
+const HOLD_LIMIT = 8 * 1024 * 1024;
+
+const collect = (source, limit) => new Promise((resolve, reject) => {
+    const chunks = [];
+    let total = 0;
+    const onData = chunk => {
+        chunks.push(chunk);
+        total += chunk.length;
+        if (total > limit) {
+            source.off("data", onData).off("end", onEnd).pause();
+            resolve({ overflow: chunks });
+        }
+    };
+    const onEnd = () => resolve({ body: Buffer.concat(chunks) });
+    source.on("data", onData).once("end", onEnd).once("error", reject);
+});
+
+const decodeBody = (body, encoding) => {
+    try {
+        switch ((encoding || "").trim().toLowerCase()) {
+            case "gzip": case "x-gzip": return zlib.gunzipSync(body);
+            case "deflate": return zlib.inflateSync(body);
+            case "br": return zlib.brotliDecompressSync(body);
+            case "zstd": return zlib.zstdDecompressSync(body);
+            case "": case "identity": return body;
+            default: return null;
+        }
+    } catch {
+        return null;
+    }
+};
+
+const injectInto = (body, snippet) => {
+    const index = body.toString("latin1").toLowerCase().indexOf("</head>");
+    const marker = Buffer.from(snippet);
+    return index === -1 ? Buffer.concat([body, marker]) : Buffer.concat([body.subarray(0, index), marker, body.subarray(index)]);
+};
+
+const captureOf = body => ({ body: body.length ? body : null, bytes: body.length, truncated: false });
+
+const headersFromPairs = pairs => {
+    const headers = {};
+    for (const [name, value] of pairs) {
+        const key = name.toLowerCase();
+        headers[key] = headers[key] === undefined ? value : [].concat(headers[key], value);
+    }
+    return headers;
+};
+
+const observe = (shape, info, onRequest) => {
     let done = false;
-    const finish = (status, captured = {}) => {
+    return (status, captured) => {
         if (done) return;
         done = true;
         onRequest({
-            time: startedAt,
-            duration: Date.now() - startedAt,
+            time: shape.time,
+            duration: Date.now() - shape.time,
             kind: "http",
-            method: req.method,
-            path: stripQueryParam(req.url),
+            method: shape.method,
+            path: shape.path,
             status,
             ip: info.clientIp,
             host: info.host,
-            request: { headers: headerList(req.headers), ...(captured.request || {}) },
-            response: captured.response || {},
+            request: { headers: shape.headers, ...captured.request },
+            response: captured.response,
         });
     };
-    return finish;
 };
 
-const proxyRequest = (req, res, tunnel, info, { pathMode, inject: snippet, onRequest, setCookie }) => {
+const proxyRequest = async (req, res, tunnel, info, { pathMode, inject: snippet, onRequest, setCookie, breakpoints }) => {
+    const shape = { time: Date.now(), method: req.method, path: stripQueryParam(req.url), headers: headerList(req.headers) };
+    let incoming = req.headers;
+    let body = null;
+
+    if (breakpoints.matches(tunnel.id, shape.method, shape.path, "request")) {
+        const collected = await collect(req, HOLD_LIMIT).catch(() => null);
+        if (!collected) return res.destroy();
+        if (collected.overflow) return res.writeHead(413, { "Content-Type": "text/plain" }).end("Request too large to hold");
+        body = collected.body;
+        const hold = breakpoints.hold(tunnel.id, { ...shape, phase: "request", ip: info.clientIp, host: info.host, request: { headers: shape.headers, ...captureOf(body) } });
+        res.on("close", () => breakpoints.settle(hold.id, { action: "cancel" }));
+        const decision = await hold.decision;
+        if (decision.action === "cancel") return;
+        if (decision.action === "drop") {
+            observe(shape, info, onRequest)(503, { request: captureOf(body), response: {} });
+            res.writeHead(503, { "Content-Type": "text/plain" }).end("Dropped at a breakpoint");
+            return;
+        }
+        shape.method = decision.method;
+        shape.path = decision.path;
+        shape.headers = decision.headers;
+        incoming = headersFromPairs(decision.headers);
+        body = decision.body;
+    }
+
     const stream = tunnel.session.open({ protocol: "tcp", remote: info.clientIp });
-    const headers = buildUpstreamHeaders(req, info, tunnel, { pathMode });
-    const wantsHtml = pathMode && (/text\/html/i.test(req.headers.accept || "") || req.headers["sec-fetch-dest"] === "document");
+    const headers = buildUpstreamHeaders({ headers: incoming }, info, tunnel, { pathMode });
+    const wantsHtml = pathMode && (/text\/html/i.test(incoming.accept || "") || incoming["sec-fetch-dest"] === "document");
     if (wantsHtml) delete headers["accept-encoding"];
+    if (body) {
+        if (body.length) headers["content-length"] = body.length; else delete headers["content-length"];
+    }
 
     const upstream = http.request({
         createConnection: () => stream,
-        method: req.method,
-        path: stripQueryParam(req.url),
+        method: shape.method,
+        path: shape.path,
         headers,
         setHost: false,
     });
 
-    const finish = observe(req, info, onRequest);
-    const requestTap = finish ? new Tap() : null;
+    const finish = observe(shape, info, onRequest);
+    const requestTap = body ? null : new Tap();
     let responseTap = null;
     const captured = () => ({
-        request: requestTap ? requestTap.result() : {},
+        request: requestTap ? requestTap.result() : captureOf(body),
         response: responseTap ? responseTap.result() : {},
     });
     let responded = false;
@@ -210,7 +284,7 @@ const proxyRequest = (req, res, tunnel, info, { pathMode, inject: snippet, onReq
         if (responded || res.headersSent) return res.destroy();
         responded = true;
         logger.debug(`proxy ${tunnel.id}: ${message}`);
-        if (finish) finish(status, captured());
+        finish(status, captured());
 
         if (status === 502) sendAppState(req, res, 502, { kind: "offline", id: tunnel.id });
         else res.writeHead(status, { "Content-Type": "text/plain" }).end(message);
@@ -221,19 +295,60 @@ const proxyRequest = (req, res, tunnel, info, { pathMode, inject: snippet, onReq
     req.on("error", () => upstream.destroy());
     res.on("close", () => { if (!res.writableFinished) upstream.destroy(); });
 
-    upstream.on("response", upstreamRes => {
+    const isHtml = headers => /^text\/html/i.test(String(headers["content-type"] || ""));
+
+    upstream.on("response", async upstreamRes => {
         responded = true;
-        if (finish) {
-            responseTap = new Tap();
-            res.on("close", () => finish(upstreamRes.statusCode, {
-                ...captured(),
-                response: { ...responseTap.result(), headers: headerList(upstreamRes.headers) },
-            }));
+        responseTap = new Tap();
+        const outcome = { status: upstreamRes.statusCode, headers: headerList(upstreamRes.headers), body: null };
+        res.on("close", () => finish(outcome.status, {
+            ...captured(),
+            response: { ...(outcome.body ? captureOf(outcome.body) : responseTap.result()), headers: outcome.headers },
+        }));
+        let outHeaders = buildDownstreamHeaders(upstreamRes, tunnel, info, { pathMode });
+        let out = upstreamRes;
+
+        if (breakpoints.matches(tunnel.id, shape.method, shape.path, "response")) {
+            const collected = await collect(upstreamRes, HOLD_LIMIT).catch(() => null);
+            if (!collected) return res.destroy();
+            if (collected.body) {
+                const decoded = decodeBody(collected.body, upstreamRes.headers["content-encoding"]);
+                const dropped = new Set([...HOP_BY_HOP, ...(decoded ? ["content-encoding", "content-length"] : [])]);
+                const heldHeaders = outcome.headers.filter(([name]) => !dropped.has(name.toLowerCase()));
+                const hold = breakpoints.hold(tunnel.id, {
+                    ...shape, phase: "response", ip: info.clientIp, host: info.host,
+                    request: { headers: shape.headers, ...captured().request },
+                    response: { status: upstreamRes.statusCode, headers: heldHeaders, ...captureOf(decoded || collected.body) },
+                });
+                res.on("close", () => breakpoints.settle(hold.id, { action: "cancel" }));
+                const decision = await hold.decision;
+                if (decision.action === "cancel") return;
+                if (decision.action === "drop") {
+                    outcome.status = 503;
+                    outcome.headers = [];
+                    outcome.body = Buffer.alloc(0);
+                    return res.writeHead(503, { "Content-Type": "text/plain" }).end("Dropped at a breakpoint");
+                }
+                const replyHeaders = headersFromPairs(decision.headers);
+                outHeaders = buildDownstreamHeaders({ rawHeaders: decision.headers.flat() }, tunnel, info, { pathMode });
+                const reply = snippet && decision.status === 200 && isHtml(replyHeaders) ? injectInto(decision.body, snippet) : decision.body;
+                for (const name of Object.keys(outHeaders)) if (name.toLowerCase() === "content-length") delete outHeaders[name];
+                outHeaders["content-length"] = reply.length;
+                if (setCookie) appendCookie(outHeaders, setCookie);
+                outcome.status = decision.status;
+                outcome.headers = decision.headers;
+                outcome.body = reply;
+                return res.writeHead(decision.status, outHeaders).end(reply);
+            }
+            res.writeHead(upstreamRes.statusCode, upstreamRes.statusMessage, outHeaders);
+            responseTap.pipe(res);
+            for (const chunk of collected.overflow) responseTap.write(chunk);
+            upstreamRes.pipe(responseTap);
+            upstreamRes.on("error", () => res.destroy());
+            return;
         }
-        const outHeaders = buildDownstreamHeaders(upstreamRes, tunnel, info, { pathMode });
-        const contentType = String(upstreamRes.headers["content-type"] || "");
-        const inject = !!snippet && upstreamRes.statusCode === 200 && /^text\/html/i.test(contentType);
-        let body = upstreamRes;
+
+        const inject = !!snippet && upstreamRes.statusCode === 200 && isHtml(upstreamRes.headers);
 
         if (inject) {
             const decoder = decoderFor(upstreamRes.headers["content-encoding"]);
@@ -244,20 +359,20 @@ const proxyRequest = (req, res, tunnel, info, { pathMode, inject: snippet, onReq
                 }
                 if (decoder !== "identity") {
                     decoder.on("error", () => res.destroy());
-                    body = upstreamRes.pipe(decoder);
+                    out = upstreamRes.pipe(decoder);
                 }
-                body = body.pipe(new InjectTransform(snippet));
+                out = out.pipe(new InjectTransform(snippet));
             }
         }
         if (setCookie) appendCookie(outHeaders, setCookie);
         res.writeHead(upstreamRes.statusCode, upstreamRes.statusMessage, outHeaders);
-        if (responseTap) body = body.pipe(responseTap);
-        body.pipe(res);
+        out = out.pipe(responseTap);
+        out.pipe(res);
         upstreamRes.on("error", () => res.destroy());
     });
 
     if (requestTap) req.pipe(requestTap).pipe(upstream);
-    else req.pipe(upstream);
+    else upstream.end(body);
 };
 
 const replayRequest = (tunnel, stored, onRequest) => new Promise(resolve => {

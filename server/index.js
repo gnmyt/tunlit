@@ -5,6 +5,7 @@ const { createAuth } = require("./utils/auth");
 const { Registry } = require("./lib/registry");
 const { TrafficLog } = require("./lib/traffic");
 const { Visitors } = require("./lib/visitors");
+const { Breakpoints } = require("./lib/breakpoints");
 const { Stats } = require("./lib/stats");
 const { AccessStore } = require("./lib/access");
 const { DeviceStore } = require("./lib/devices");
@@ -42,6 +43,7 @@ const intel = new Intel();
 const registry = new Registry(config, domains, quotas, intel);
 const traffic = new TrafficLog();
 const visitors = new Visitors();
+const breakpoints = new Breakpoints();
 const frames = new FrameLog();
 const access = new AccessStore();
 const stats = new Stats(registry, quotas);
@@ -51,13 +53,14 @@ registry.on("blocked", (tunnel, ip, details, reason) => visitors.blocked(tunnel.
 registry.on("forget", tunnel => {
     traffic.forget(tunnel.id).catch(err => logger.warn(`Could not drop stored requests: ${err.message}`));
     visitors.forget(tunnel.id).catch(err => logger.warn(`Could not drop stored visitors: ${err.message}`));
+    breakpoints.forget(tunnel.id);
     access.forget(tunnel.id);
     stats.forget(tunnel.id);
 });
 const sessions = new SessionStore();
 const attempts = new AttemptLimiter();
 const control = createControlServer({ config, auth, registry });
-const router = createRouter({ config, auth, registry, traffic, visitors, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, control });
+const router = createRouter({ config, auth, registry, traffic, visitors, breakpoints, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, control });
 
 const SERVER_OPTIONS = { keepAliveTimeout: 65_000, requestTimeout: 0, headersTimeout: 60_000 };
 
