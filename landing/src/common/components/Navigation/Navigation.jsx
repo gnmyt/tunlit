@@ -15,7 +15,8 @@ export const Navigation = () => {
     const links = (
         <>
             <NavLink to="/" end className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>Home</NavLink>
-            <NavLink to="/install" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>Install</NavLink>
+            <NavLink to="/downloads" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>Downloads</NavLink>
+            <NavLink to="/setup" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>Set up a server</NavLink>
             <a className="nav-link" href={DOCS_URL} target="_blank" rel="noreferrer">Docs <ArrowUpRight /></a>
         </>
     );

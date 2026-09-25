@@ -1,0 +1,189 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.downloads
+  padding-top: 4rem
+  padding-bottom: 5rem
+
+  @media (max-width: breakpoints.$mobile)
+    padding-top: 2.5rem
+    padding-bottom: 3rem
+
+.featured
+  display: grid
+  grid-template-columns: 1fr 1fr
+  gap: 3rem
+  align-items: start
+  padding: 2.5rem
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 1rem
+
+  @media (max-width: breakpoints.$tablet)
+    grid-template-columns: 1fr
+    gap: 2rem
+    padding: 1.5rem
+
+.featured-text
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+
+  > svg
+    color: colors.$text
+
+  h1
+    margin-top: 1.25rem
+    font-size: 2.5rem
+    letter-spacing: -0.035em
+
+  p
+    margin: 0.5rem 0 1.75rem
+    color: colors.$subtext
+    font-size: 1rem
+
+  @media (max-width: breakpoints.$mobile)
+    h1
+      font-size: 1.875rem
+
+.featured-side
+  display: flex
+  flex-direction: column
+  gap: 0.875rem
+
+  .code-block
+    background-color: colors.$background
+
+.others
+  margin-top: 3rem
+
+  h2
+    margin-bottom: 1rem
+    font-size: 1.25rem
+
+.downloads-version
+  display: inline-flex
+  align-items: center
+  gap: 0.25rem
+  margin-top: 1.25rem
+  color: colors.$primary-bright
+  font-size: 0.8125rem
+
+  svg
+    width: 0.875rem
+    height: 0.875rem
+
+  &:hover
+    color: colors.$primary-hover
+
+.platforms
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: 0.75rem
+  align-items: start
+
+  @media (max-width: breakpoints.$tablet)
+    grid-template-columns: 1fr
+
+.platform
+  background-color: colors.$surface
+  border: 1px solid colors.$border
+  border-radius: 0.875rem
+  overflow: hidden
+
+.platform-head
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  padding: 1rem 1.25rem
+  border-bottom: 1px solid colors.$border
+
+  svg
+    color: colors.$text
+
+  h3
+    font-size: 1.0625rem
+
+.platform-body
+  display: flex
+  flex-direction: column
+  gap: 0.875rem
+  padding: 1.25rem
+
+  .code-block
+    background-color: colors.$background
+
+  .code-block pre
+    font-size: 0.75rem
+
+    code
+      white-space: pre-wrap
+      word-break: break-all
+
+.platform-primary
+  width: 100%
+
+.platform-groups
+  display: flex
+  flex-direction: column
+  gap: 0.875rem
+
+.platform-group
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+  > span
+    color: colors.$muted
+    font-size: 0.75rem
+    font-weight: 600
+    text-transform: uppercase
+    letter-spacing: 0.06em
+
+.platform-files
+  display: flex
+  flex-wrap: wrap
+  gap: 0.375rem
+
+  .btn
+    padding: 0.375rem 0.75rem
+    font-size: 0.8125rem
+
+.downloads-next
+  display: grid
+  grid-template-columns: 1fr 1fr
+  gap: 2rem
+  align-items: center
+  margin-top: 3.5rem
+  padding-top: 3rem
+  border-top: 1px solid colors.$border
+
+  @media (max-width: breakpoints.$mobile)
+    grid-template-columns: 1fr
+
+.downloads-next-text
+  h2
+    font-size: 1.5rem
+    letter-spacing: -0.03em
+
+  p
+    margin: 0.5rem 0 1.25rem
+    color: colors.$subtext
+    font-size: 0.9375rem
+    line-height: 1.6
+
+.downloads-links
+  display: flex
+  flex-wrap: wrap
+  gap: 0.5rem 1.5rem
+  margin-top: 3rem
+  padding-top: 1.25rem
+  border-top: 1px solid colors.$border
+  font-size: 0.8125rem
+
+  a
+    color: colors.$subtext
+    transition: color 0.15s ease
+
+    &:hover
+      color: colors.$text

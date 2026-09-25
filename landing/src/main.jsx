@@ -5,7 +5,8 @@ import "@/common/styles/fonts.sass";
 import "@/common/styles/default.sass";
 import Root from "@/common/layouts/Root";
 import Home from "@/pages/Home";
-import Install from "@/pages/Install";
+import Downloads from "@/pages/Downloads";
+import Setup from "@/pages/Setup";
 import NotFound from "@/pages/NotFound";
 
 const router = createBrowserRouter([
@@ -15,7 +16,8 @@ const router = createBrowserRouter([
         errorElement: <NotFound />,
         children: [
             { index: true, element: <Home /> },
-            { path: "install", element: <Install /> },
+            { path: "downloads", element: <Downloads /> },
+            { path: "setup", element: <Setup /> },
         ],
     },
 ]);

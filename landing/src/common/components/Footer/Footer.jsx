@@ -15,7 +15,8 @@ export const Footer = () => (
                 <p>Self-hosted tunnels. MIT licensed.</p>
             </div>
             <nav className="footer-links">
-                <Link to="/install">Install</Link>
+                <Link to="/downloads">Downloads</Link>
+                <Link to="/setup">Set up a server</Link>
                 <a href={DOCS_URL} target="_blank" rel="noreferrer">Documentation</a>
                 <a href={RELEASES_URL} target="_blank" rel="noreferrer">Releases</a>
                 <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>

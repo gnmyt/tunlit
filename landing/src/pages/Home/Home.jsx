@@ -19,7 +19,7 @@ export const Home = () => (
                 through one public port on a machine you control.
             </p>
             <div className="hero-actions">
-                <Button text="Get started" icon={ArrowRight} to="/install" size="lg" />
+                <Button text="Get started" icon={ArrowRight} to="/setup" size="lg" />
                 <Button text="GitHub" icon={GithubMark} href={GITHUB_URL} type="secondary" size="lg" />
             </div>
             <div className="hero-terminal">
