@@ -14,10 +14,10 @@ license: "MIT"
 overrides:
   deb:
     depends:
-      - libc6
+      - libc6 (>= 2.35)
   rpm:
     depends:
-      - glibc
+      - glibc >= 2.35
 
 contents:
   - src: stage/cli/tunlit

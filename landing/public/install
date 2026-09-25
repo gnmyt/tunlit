@@ -36,21 +36,42 @@ fetch() {
     fi
 }
 
+ensure_fetcher() {
+    have curl || have wget && return 0
+    [ -n "$SUDO" ] || [ "$(id -u)" -eq 0 ] || fail "curl or wget is required"
+    say "Installing curl"
+    if have apt-get; then export DEBIAN_FRONTEND=noninteractive; $SUDO apt-get update -qq && $SUDO apt-get install -y -qq ca-certificates curl
+    elif have dnf; then $SUDO dnf install -y -q curl
+    elif have yum; then $SUDO yum install -y -q curl
+    elif have apk; then $SUDO apk add --no-cache curl ca-certificates
+    else fail "curl or wget is required"
+    fi
+}
+
 install_apt() {
-    have apt-get && have gpg || return 1
+    have apt-get || return 1
+    [ -n "$SUDO" ] || [ "$(id -u)" -eq 0 ] || return 1
     say "Adding the apt repository"
-    fetch "$APT_KEY" /tmp/tunlit-apt.key
-    $SUDO gpg --dearmor --yes -o /usr/share/keyrings/tunlit.gpg /tmp/tunlit-apt.key
+    ensure_fetcher
+    if ! have gpg; then
+        export DEBIAN_FRONTEND=noninteractive
+        $SUDO apt-get update -qq || return 1
+        $SUDO apt-get install -y -qq gnupg || return 1
+    fi
+    fetch "$APT_KEY" /tmp/tunlit-apt.key || return 1
+    $SUDO mkdir -p /usr/share/keyrings || return 1
+    $SUDO gpg --dearmor --yes -o /usr/share/keyrings/tunlit.gpg /tmp/tunlit-apt.key || return 1
     rm -f /tmp/tunlit-apt.key
-    echo "deb [signed-by=/usr/share/keyrings/tunlit.gpg] $APT_REPO" | $SUDO tee /etc/apt/sources.list.d/tunlit.list >/dev/null
-    $SUDO apt-get update -qq
+    echo "deb [signed-by=/usr/share/keyrings/tunlit.gpg] $APT_REPO" | $SUDO tee /etc/apt/sources.list.d/tunlit.list >/dev/null || return 1
+    $SUDO apt-get update -qq || return 1
     $SUDO apt-get install -y -qq tunlit-cli
 }
 
 install_rpm() {
     if have dnf; then manager=dnf; elif have yum; then manager=yum; else return 1; fi
+    [ -n "$SUDO" ] || [ "$(id -u)" -eq 0 ] || return 1
     say "Adding the rpm repository"
-    $SUDO tee /etc/yum.repos.d/tunlit.repo >/dev/null <<EOF
+    $SUDO tee /etc/yum.repos.d/tunlit.repo >/dev/null <<EOF || return 1
 [tunlit]
 name=tunlit
 baseurl=$RPM_REPO/\$basearch
@@ -72,6 +93,7 @@ static_build() {
 }
 
 install_binary() {
+    ensure_fetcher
     asset="tunlit-$os-$arch"
     if static_build; then asset="$asset-static"; fi
     say "Downloading $asset"
@@ -93,7 +115,7 @@ install_binary() {
 
 printf '\n  tunlit installer (%s %s)\n\n' "$os" "$arch"
 
-if [ "$os" = linux ]; then
+if [ "$os" = linux ] && ! static_build; then
     if install_apt; then :
     elif install_rpm; then :
     else install_binary
