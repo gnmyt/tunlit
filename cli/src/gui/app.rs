@@ -1,7 +1,9 @@
 use eframe::egui::{self, Align, Color32, CursorIcon, Frame, Layout, Margin, RichText, Sense, Stroke, TextureHandle, TextureOptions, Ui, UiBuilder};
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
@@ -13,6 +15,7 @@ use crate::qr;
 use crate::session::{self, Connection, JoinEvent, Online, Request, Stop, StopHandle, Task, TunnelEvent};
 use crate::tunnel::{self, connect_target, Options, Target};
 use crate::update;
+use super::ports::{self, Listener};
 use super::{format, hide_by_closing, theme, widgets, Repaint, Wake};
 
 const MAX_REQUESTS: usize = 500;
@@ -20,6 +23,7 @@ const TOAST_FOR: Duration = Duration::from_secs(3);
 const UNDO_FOR: Duration = Duration::from_secs(8);
 const PROBE_TIMEOUT: Duration = Duration::from_secs(1);
 const PROBE_INTERVAL: Duration = Duration::from_secs(5);
+const SCAN_INTERVAL: Duration = Duration::from_secs(4);
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Page { Tunnels, NewTunnel, Tunnel(u64), Connect, Settings }
@@ -38,6 +42,7 @@ pub enum Msg {
     Update(Option<String>),
     Updated(Result<(), String>),
     TunnelProbe(u64, Option<String>),
+    Listeners(Vec<Listener>),
     FolderPicked(Option<PathBuf>),
 }
 
@@ -151,6 +156,8 @@ pub struct State {
     pub joins: Vec<JoinCard>,
     next_id: u64,
     pub me: Option<Me>,
+    pub listeners: Vec<Listener>,
+    pub scan_ports: Arc<AtomicBool>,
     pub update: Option<String>,
     pub updating: bool,
     pub checked_update: bool,
@@ -176,13 +183,35 @@ impl State {
         let mut state = Self {
             runtime, mailbox: Mailbox { tx, repaint }, rx, page: Page::Tunnels, cfg, server_info: None, tunnels: Vec::new(), joins: Vec::new(), next_id: 1,
             login, new_tunnel: NewTunnelForm::default(), connect: ConnectForm::default(),
-            me: None, update: None, updating: false, checked_update: false, managed: update::detect() == update::Install::Managed, relaunch: false, start_hidden: false, hotkey: false, autostart: super::autostart::enabled(), toasts: Vec::new(), has_tray, quitting: false, monitor: None,
+            me: None, listeners: Vec::new(), scan_ports: Arc::new(AtomicBool::new(false)), update: None, updating: false, checked_update: false, managed: update::detect() == update::Install::Managed, relaunch: false, start_hidden: false, hotkey: false, autostart: super::autostart::enabled(), toasts: Vec::new(), has_tray, quitting: false, monitor: None,
         };
         state.fetch_info();
         state.fetch_me();
         let mailbox = state.mailbox.clone();
         state.runtime.spawn(async move { mailbox.send(Msg::Update(update::check().await)); });
+        let (mailbox, scan) = (state.mailbox.clone(), state.scan_ports.clone());
+        state.runtime.spawn(async move {
+            loop {
+                if scan.load(Ordering::Relaxed) {
+                    if let Ok(found) = tokio::task::spawn_blocking(ports::scan).await { mailbox.send(Msg::Listeners(found)); }
+                }
+                tokio::time::sleep(SCAN_INTERVAL).await;
+            }
+        });
         state
+    }
+
+    pub fn expose(&mut self, listener: &Listener) {
+        let target = Target { host: "127.0.0.1".into(), port: listener.port, tls: false };
+        if listener.is_tcp() {
+            self.start_tunnel(TunnelKind::Tcp, Options::tcp(target, None, tunnel::Access::default()));
+        } else {
+            self.start_tunnel(TunnelKind::Http, Options::http(tunnel::TargetSpec::Addr(target), None, false, tunnel::Access::default()));
+        }
+    }
+
+    pub fn suggestions(&self) -> Vec<Listener> {
+        self.listeners.iter().filter(|listener| !self.tunnels.iter().any(|card| card.target_label.ends_with(&format!(":{}", listener.port)))).cloned().collect()
     }
 
     pub fn start_update(&mut self) {
@@ -412,6 +441,7 @@ impl State {
             Msg::Updated(Ok(_)) => { self.relaunch = true; self.quitting = true; ctx.send_viewport_cmd(egui::ViewportCommand::Close); }
             Msg::Updated(Err(message)) => { self.updating = false; self.toast_error(message); }
             Msg::TunnelProbe(id, warning) => { if let Some(card) = self.tunnel_mut(id) { card.probe = warning; } }
+            Msg::Listeners(found) => self.listeners = found,
             Msg::Join(id, event) => self.handle_join(id, event),
             Msg::JoinFailed(id, message, port_in_use) => self.fail_join(id, message, port_in_use),
             Msg::Login(LoginEvent::Code { code, handoff_url }) => {
@@ -686,6 +716,7 @@ impl eframe::App for Window<'_> {
             self.place(&ctx);
             ctx.request_repaint_after(Duration::from_millis(30));
         }
+        self.state.scan_ports.store(self.visible && self.state.page == Page::Tunnels && self.state.linked(), Ordering::Relaxed);
         let rect = ctx.content_rect();
         ctx.layer_painter(egui::LayerId::background()).rect_stroke(rect, 0.0, Stroke::new(1.0, theme::BORDER_STRONG), egui::StrokeKind::Inside);
         self.nav(root);

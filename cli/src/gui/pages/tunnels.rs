@@ -32,7 +32,6 @@ impl Window<'_> {
                 widgets::empty_state(ui, "No tunnels yet", "Share a port, a folder or a TCP service.", |ui| {
                     if widgets::button(ui, "Open your first tunnel", ButtonKind::Secondary).clicked() { state.page = Page::NewTunnel; }
                 });
-                return;
             }
 
             let server_url = state.server_url();
@@ -62,6 +61,29 @@ impl Window<'_> {
                 if response.clicked() { open = Some(card.id); }
             }
             if let Some(id) = open { state.page = Page::Tunnel(id); }
+
+            let suggestions = state.suggestions();
+            if suggestions.is_empty() { return; }
+            ui.add_space(24.0);
+            widgets::section(ui, "Listening on this machine", None);
+            let mut expose = None;
+            widgets::card(ui, |ui| {
+                ui.spacing_mut().item_spacing.y = 10.0;
+                for listener in &suggestions {
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 10.0;
+                        widgets::mono(ui, format!("localhost:{}", listener.port), 14.0, theme::TEXT);
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            if widgets::button(ui, "Open", ButtonKind::Secondary).clicked() { expose = Some(listener.clone()); }
+                            widgets::text(ui, if listener.is_tcp() { "tcp" } else { "http" }, 12.5, theme::MUTED);
+                            ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                                ui.add(egui::Label::new(egui::RichText::new(&listener.process).size(12.5).color(theme::MUTED)).truncate());
+                            });
+                        });
+                    });
+                }
+            });
+            if let Some(listener) = expose { state.expose(&listener); }
         });
     }
 

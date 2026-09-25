@@ -144,7 +144,7 @@ impl Rules {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Access {
     pub rules: Rules,
     pub password: Option<String>,

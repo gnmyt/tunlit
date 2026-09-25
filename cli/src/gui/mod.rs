@@ -5,6 +5,7 @@ mod instance;
 #[cfg(target_os = "linux")]
 mod linux;
 mod pages;
+mod ports;
 mod theme;
 mod tray;
 mod widgets;
