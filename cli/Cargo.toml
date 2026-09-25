@@ -40,7 +40,7 @@ arboard = { version = "3", default-features = false }
 eframe = { version = "0.36", optional = true }
 global-hotkey = { version = "0.8", optional = true }
 rfd = { version = "0.17", optional = true, default-features = false, features = ["xdg-portal"] }
-ratatui = "0.29"
+ratatui = "0.30"
 crossterm = { version = "0.28", features = ["event-stream"] }
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 
