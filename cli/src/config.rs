@@ -35,7 +35,7 @@ impl Config {
     }
 
     pub fn token(&self) -> Option<String> {
-        self.device_token.clone()
+        std::env::var("TUNLIT_TOKEN").ok().filter(|v| !v.trim().is_empty()).or_else(|| self.device_token.clone())
     }
 
     pub fn require_server(&self) -> Result<String> {

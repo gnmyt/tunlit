@@ -7,16 +7,20 @@ import CopyField from "@/common/components/CopyField";
 import Input from "@/common/components/Input";
 import { deleteRequest, getRequest, postRequest } from "@/common/utils/RequestUtil.js";
 import { useToast } from "@/common/contexts/toast.js";
+import { useUser } from "@/common/contexts/user.js";
 import { formatRelative } from "@/common/utils/formatUtils.js";
-import { Laptop, Link, X } from "lucide-react";
+import { KeyRound, Laptop, Link, X } from "lucide-react";
 
 export const Devices = () => {
     const { sendToast } = useToast();
+    const { serverInfo } = useUser();
     const [devices, setDevices] = useState(null);
     const [invites, setInvites] = useState(null);
     const [revoking, setRevoking] = useState(null);
     const [label, setLabel] = useState("");
     const [created, setCreated] = useState(null);
+    const [keyName, setKeyName] = useState("");
+    const [createdKey, setCreatedKey] = useState(null);
 
     const load = useCallback(async () => {
         try {
@@ -35,6 +39,18 @@ export const Devices = () => {
             const result = await deleteRequest(`${revoking.kind}/${revoking.id}`);
             sendToast("Success", result.message);
             if (revoking.kind === "invites" && created?.invite.id === revoking.id) setCreated(null);
+            if (revoking.kind === "devices" && createdKey?.device.id === revoking.id) setCreatedKey(null);
+            load();
+        } catch (error) {
+            sendToast("Error", error.message);
+        }
+    };
+
+    const createKey = async event => {
+        event.preventDefault();
+        try {
+            setCreatedKey(await postRequest("devices", { name: keyName }));
+            setKeyName("");
             load();
         } catch (error) {
             sendToast("Error", error.message);
@@ -71,6 +87,7 @@ export const Devices = () => {
                 <ul className="device-list">
                     {devices.map(device => (
                         <li key={device.id}>
+                            {device.kind === "key" && <KeyRound size={16} className="invite-icon" />}
                             <div className="device-main">
                                 <span className="device-name">{device.name}</span>
                                 <span className="device-meta">
@@ -85,6 +102,21 @@ export const Devices = () => {
                         </li>
                     ))}
                 </ul>
+            )}
+
+            <div className="settings-head invites-head">
+                <h2>API keys</h2>
+                <p>For servers, CI and scripts. No browser needed.</p>
+            </div>
+            <form className="invite-form" onSubmit={createKey}>
+                <Input id="key-name" placeholder="Where will it run?" value={keyName} setValue={setKeyName} required />
+                <Button text="Create key" buttonType="submit" />
+            </form>
+            {createdKey && (
+                <div className="invite-created">
+                    <span>Key for {createdKey.device.name}. It is shown only now.</span>
+                    <CopyField value={`tunlit login --server ${serverInfo.publicUrl} --token ${createdKey.token}`} />
+                </div>
             )}
 
             <div className="settings-head invites-head">

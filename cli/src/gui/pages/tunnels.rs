@@ -82,14 +82,24 @@ impl Window<'_> {
                             FieldOptions { label: Some("Server URL"), hint: "https://tunlit.example.com", ..Default::default() }).lost_focus()
                             && ui.input(|input| input.key_pressed(egui::Key::Enter));
                         ui.add_space(10.0);
+                        if state.login.use_key {
+                            submit |= widgets::field(ui, "login-key", &mut state.login.key,
+                                FieldOptions { label: Some("API key"), hint: "from Settings › Devices", mono: true, secret: true, ..Default::default() }).lost_focus()
+                                && ui.input(|input| input.key_pressed(egui::Key::Enter));
+                            ui.add_space(10.0);
+                        }
                         widgets::toggle_row(ui, "Accept self-signed certificates", "", &mut state.login.accept_invalid);
                         ui.add_space(8.0);
                         if let LoginStage::Failed(message) = &state.login.stage {
                             widgets::error_notice(ui, message);
                             ui.add_space(8.0);
                         }
-                        if widgets::button_sized(ui, "Continue", ButtonKind::Primary, ui.available_width()).clicked() { submit = true; }
-                        if submit { state.start_login(); }
+                        let label = if state.login.use_key { "Link with key" } else { "Continue" };
+                        if widgets::button_sized(ui, label, ButtonKind::Primary, ui.available_width()).clicked() { submit = true; }
+                        if submit { if state.login.use_key { state.link_with_key() } else { state.start_login() } }
+                        ui.add_space(4.0);
+                        let other = if state.login.use_key { "Approve in the browser instead" } else { "Use an API key instead" };
+                        if widgets::button(ui, other, ButtonKind::Ghost).clicked() { state.login.use_key = !state.login.use_key; state.login.stage = LoginStage::Idle; }
                     }
                     LoginStage::Starting => {
                         ui.horizontal(|ui| { ui.spinner(); widgets::text(ui, "Contacting the server...", 14.0, theme::SUBTEXT); });

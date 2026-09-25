@@ -34,7 +34,7 @@ pub enum Msg {
     LoginFailed(String),
     Info(Result<ServerInfo, String>),
     Me(Option<Me>),
-    Invited(Result<String, String>),
+    Linked(Result<String, String>),
     Update(Option<String>),
     Updated(Result<(), String>),
     TunnelProbe(u64, Option<String>),
@@ -93,7 +93,7 @@ pub struct JoinCard {
 
 pub enum LoginStage { Idle, Starting, Waiting { code: String, url: String }, Failed(String) }
 
-pub struct LoginForm { pub server: String, pub accept_invalid: bool, pub stage: LoginStage, pub stop: Option<StopHandle> }
+pub struct LoginForm { pub server: String, pub accept_invalid: bool, pub key: String, pub use_key: bool, pub stage: LoginStage, pub stop: Option<StopHandle> }
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum AuthChoice { Open, Password, Login }
@@ -172,7 +172,7 @@ impl State {
     pub fn new(runtime: Handle, repaint: Repaint, has_tray: bool) -> Self {
         let (tx, rx) = mpsc::channel();
         let cfg = Config::load().unwrap_or_default();
-        let login = LoginForm { server: cfg.server_url.clone().unwrap_or_default(), accept_invalid: cfg.accept_invalid_certs, stage: LoginStage::Idle, stop: None };
+        let login = LoginForm { server: cfg.server_url.clone().unwrap_or_default(), accept_invalid: cfg.accept_invalid_certs, key: String::new(), use_key: false, stage: LoginStage::Idle, stop: None };
         let mut state = Self {
             runtime, mailbox: Mailbox { tx, repaint }, rx, page: Page::Tunnels, cfg, server_info: None, tunnels: Vec::new(), joins: Vec::new(), next_id: 1,
             login, new_tunnel: NewTunnelForm::default(), connect: ConnectForm::default(),
@@ -240,8 +240,8 @@ impl State {
             let accept = self.cfg.accept_invalid_certs;
             let mailbox = self.mailbox.clone();
             self.runtime.spawn(async move {
-                let result = auth::accept_invite(invite, accept).await.map(|(me, info)| format!("Linked to {} as {}", info.name, me.label())).map_err(|err| format!("{err:#}"));
-                mailbox.send(Msg::Invited(result));
+                let result = linked(auth::accept_invite(invite, accept).await);
+                mailbox.send(Msg::Linked(result));
             });
             return;
         }
@@ -256,6 +256,19 @@ impl State {
         self.runtime.spawn(async move {
             let result = async { ApiClient::new(&url, None, accept)?.info().await }.await.map_err(|err| format!("{err:#}"));
             mailbox.send(Msg::Info(result));
+        });
+    }
+
+    pub fn link_with_key(&mut self) {
+        let server = self.login.server.trim().to_string();
+        let key = self.login.key.trim().to_string();
+        if server.is_empty() || key.is_empty() { self.login.stage = LoginStage::Failed("Enter the server URL and the API key".into()); return; }
+        self.login.stage = LoginStage::Starting;
+        let accept = self.login.accept_invalid;
+        let mailbox = self.mailbox.clone();
+        self.runtime.spawn(async move {
+            let result = linked(auth::link_token(server, key, accept).await);
+            mailbox.send(Msg::Linked(result));
         });
     }
 
@@ -393,8 +406,8 @@ impl State {
                 if fresh { self.new_tunnel.error = Some(message); self.page = Page::NewTunnel; } else { self.toast_error(message); }
             }
             Msg::Me(me) => self.me = me,
-            Msg::Invited(Ok(message)) => { self.reload_config(); self.fetch_info(); self.toast(message); }
-            Msg::Invited(Err(message)) => self.toast_error(message),
+            Msg::Linked(Ok(message)) => { self.login.stage = LoginStage::Idle; self.login.key.clear(); self.reload_config(); self.fetch_info(); self.toast(message); }
+            Msg::Linked(Err(message)) => { self.login.stage = LoginStage::Failed(message); }
             Msg::Update(version) => { self.update = version; self.checked_update = true; }
             Msg::Updated(Ok(_)) => { self.relaunch = true; self.quitting = true; ctx.send_viewport_cmd(egui::ViewportCommand::Close); }
             Msg::Updated(Err(message)) => { self.updating = false; self.toast_error(message); }
@@ -690,6 +703,10 @@ impl eframe::App for Window<'_> {
         });
         self.toasts(&ctx);
     }
+}
+
+fn linked(result: anyhow::Result<(Me, ServerInfo)>) -> Result<String, String> {
+    result.map(|(me, info)| format!("Linked to {} as {}", info.name, me.label())).map_err(|err| format!("{err:#}"))
 }
 
 async fn reachable(target: &Target) -> bool {

@@ -261,8 +261,16 @@ pub async fn update() -> Result<()> {
     Ok(())
 }
 
-pub async fn login(link: Option<String>) -> Result<()> {
+pub async fn login(link: Option<String>, token: Option<String>, server: Option<String>) -> Result<()> {
     let cfg = Config::load()?;
+
+    if let Some(token) = token {
+        let server_url = server.or_else(|| cfg.server_url()).context("Pass --server <url> along with the key")?;
+        let (me, info) = auth::link_token(server_url, token, cfg.accept_invalid_certs).await?;
+        println!("{} Linked to {} as {}", ok(), style(info.name).cyan().bold(), style(me.label()).cyan());
+        println!("  Tunnels will be created under {}", style(&info.base_domain).cyan());
+        return Ok(());
+    }
 
     if let Some(link) = link {
         let invite = auth::parse_invite(&link).ok_or_else(|| anyhow::anyhow!("That is not an invite link. Run `tunlit login` without arguments to link with your account"))?;

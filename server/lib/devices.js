@@ -22,6 +22,7 @@ const humanCode = () => {
 const describeDevice = (device, owner) => ({
     id: device.id,
     name: device.name,
+    kind: device.kind,
     owner: owner || null,
     createdAt: device.createdAt,
     lastUsedAt: device.lastUsedAt,
@@ -64,6 +65,15 @@ class DeviceStore {
             userAgent: request.userAgent, createdAt: request.createdAt,
             expiresAt: request.expiresAt, status: request.status,
         };
+    }
+
+    async createKey(accountId, name) {
+        const label = String(name || "").trim();
+        if (!label) return { code: 400, message: "Give the key a name" };
+        const token = randomToken(48);
+        const device = await Device.create({ accountId, name: label, kind: "key", tokenHash: hashToken(token) });
+        logger.info(`API key "${label}" created`, { id: device.id });
+        return { device: describeDevice(device), token };
     }
 
     async approve(code, { name, accountId } = {}) {

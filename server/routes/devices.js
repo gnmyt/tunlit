@@ -6,6 +6,12 @@ app.get("/", async (req, res) => {
     res.json({ devices: await req.devices.list(req.session.role === "admin" ? undefined : req.account.id) });
 });
 
+app.post("/", async (req, res) => {
+    const result = await req.devices.createKey(req.account.id, req.body.name);
+    if (result.code) return res.status(result.code).json(result);
+    res.json(result);
+});
+
 app.get("/pending/:code", (req, res) => {
     const request = req.devices.describe(req.params.code);
     if (!request) return res.status(404).json({ error: "not_found", message: "That code is unknown or has expired" });

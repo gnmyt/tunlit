@@ -33,14 +33,17 @@ tunlit login https://tunlit.example.com/@tunlit/invite/<token>
 After that everything works as usual. Tunnels opened this way show up under your account with the invite's label,
 and revoking the link closes them.
 
-For an unattended machine, approve it once somewhere with a browser and copy the token over:
+### API keys
+
+For a machine without a browser, CI, or scripts, create an API key under Settings › Devices in the web UI and link
+with it directly:
 
 ```sh
-tunlit config set server-url https://tunlit.example.com
-tunlit config set device-token <token>
+tunlit login --server https://tunlit.example.com --token <key>
 ```
 
-`TUNLIT_SERVER` still overrides the saved server URL.
+A key is a device like any other: it shows up in the list, can be revoked there, and revoking it closes its tunnels.
+`TUNLIT_SERVER` and `TUNLIT_TOKEN` override the saved server URL and token for one-off runs.
 
 ## Commands
 

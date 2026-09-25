@@ -35,6 +35,8 @@ struct Cli {
 enum Commands {
     Login {
         link: Option<String>,
+        #[arg(long, value_name = "KEY", help = "Link with an API key instead of the browser")] token: Option<String>,
+        #[arg(short, long)] server: Option<String>,
     },
     Logout,
     Http {
@@ -165,7 +167,7 @@ fn fail(err: anyhow::Error) -> ! {
 
 async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
-        Commands::Login { link } => cli::login(link).await,
+        Commands::Login { link, token, server } => cli::login(link, token, server).await,
         Commands::Logout => cli::logout(),
         Commands::Http { target, name, route, keep_host, rules, password, require_login, shape, plain } =>
             cli::tunnel(tunnel::Options::http(tunnel::TargetSpec::with_routes(&target, &route)?, name, keep_host, tunnel::Access::new(rules.parse()?, password, require_login)?).shaped(shape.parse()?), plain).await,

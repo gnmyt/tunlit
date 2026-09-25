@@ -28,12 +28,17 @@ pub fn parse_invite(link: &str) -> Option<Invite> {
 
 pub async fn accept_invite(invite: Invite, accept_invalid_certs: bool) -> Result<(Me, ServerInfo)> {
     if invite.token.is_empty() { bail!("That invite link carries no token"); }
-    let client = ApiClient::new(&invite.server_url, Some(&invite.token), accept_invalid_certs)?;
+    link_token(invite.server_url, invite.token, accept_invalid_certs).await.map_err(|_| anyhow::anyhow!("That invite link is not valid any more"))
+}
+
+pub async fn link_token(server_url: String, token: String, accept_invalid_certs: bool) -> Result<(Me, ServerInfo)> {
+    let server_url = normalize_url(&server_url);
+    let client = ApiClient::new(&server_url, Some(&token), accept_invalid_certs)?;
     let info = client.info().await?;
-    let me = client.whoami().await.map_err(|_| anyhow::anyhow!("That invite link is not valid any more"))?;
+    let me = client.whoami().await.map_err(|_| anyhow::anyhow!("The server did not accept that token"))?;
     let mut cfg = Config::load()?;
-    cfg.server_url = Some(invite.server_url);
-    cfg.device_token = Some(invite.token);
+    cfg.server_url = Some(server_url);
+    cfg.device_token = Some(token);
     cfg.save()?;
     Ok((me, info))
 }
