@@ -15,6 +15,7 @@ mod service;
 mod session;
 mod shape;
 mod tcp;
+mod tls;
 mod tui;
 mod tunnel;
 mod update;
@@ -143,6 +144,7 @@ enum ConfigAction {
 }
 
 fn main() {
+    tls::install_provider();
     if cfg!(windows) { update::cleanup(); }
     let cli = Cli::parse();
     let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(4).enable_all().build().unwrap_or_else(|err| fail(err.into()));

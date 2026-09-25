@@ -178,9 +178,7 @@ impl Mux {
         if let Some(token) = token {
             request.headers_mut().insert("Authorization", format!("Bearer {token}").parse()?);
         }
-        let connector = if accept_invalid_certs {
-            Some(Connector::NativeTls(native_tls::TlsConnector::builder().danger_accept_invalid_certs(true).build()?))
-        } else { None };
+        let connector = Some(Connector::Rustls(crate::tls::client_config(accept_invalid_certs)?));
         let (ws, _) = connect_async_tls_with_config(request, None, true, connector).await
             .map_err(|e| anyhow!("Could not connect to {url}: {e}"))?;
         let (mut sink, mut source) = ws.split();

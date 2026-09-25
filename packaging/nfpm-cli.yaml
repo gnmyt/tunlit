@@ -15,11 +15,9 @@ overrides:
   deb:
     depends:
       - libc6
-      - libssl3 | libssl1.1
   rpm:
     depends:
       - glibc
-      - openssl-libs
 
 contents:
   - src: stage/cli/tunlit

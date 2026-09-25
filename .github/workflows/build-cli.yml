@@ -48,6 +48,13 @@ jobs:
             target: x86_64-pc-windows-msvc
             artifact_name: tunlit-windows-x64.exe
             is_windows: true
+            msi_arch: x64
+          - name: windows-arm64
+            os: windows-latest
+            target: aarch64-pc-windows-msvc
+            artifact_name: tunlit-windows-arm64.exe
+            is_windows: true
+            msi_arch: arm64
 
     steps:
       - name: Checkout project
@@ -63,12 +70,6 @@ jobs:
         with:
           workspaces: cli -> target
           key: ${{ matrix.target }}
-
-      - name: Install build dependencies (Linux)
-        if: startsWith(matrix.os, 'ubuntu-')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev pkg-config
 
       - name: Stamp the version
         shell: bash
@@ -157,10 +158,10 @@ jobs:
           PKG_VERSION: ${{ inputs.semver }}
         run: |
           wix build packaging/windows/tunlit.wxs \
-            -arch x64 \
+            -arch ${{ matrix.msi_arch }} \
             -d Version="$PKG_VERSION" \
             -d BinPath="dist/${{ matrix.artifact_name }}" \
-            -o "dist/tunlit-x64.msi"
+            -o "dist/tunlit-${{ matrix.msi_arch }}.msi"
 
       - name: Upload the installer
         if: matrix.is_windows
@@ -168,3 +169,87 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" dist/*.msi --clobber
+
+  build-cli-static:
+    name: "CLI static (${{ matrix.name }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            target: x86_64-unknown-linux-musl
+          - name: linux-arm64
+            target: aarch64-unknown-linux-musl
+          - name: linux-armv7
+            target: armv7-unknown-linux-musleabihf
+            deb_arch: armhf
+            rpm_arch: armv7hl
+          - name: linux-riscv64
+            target: riscv64gc-unknown-linux-musl
+            deb_arch: riscv64
+            rpm_arch: riscv64
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v7
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: cli -> target
+          key: ${{ matrix.target }}
+
+      - name: Install cargo-zigbuild
+        run: pip install cargo-zigbuild
+
+      - name: Stamp the version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: sed -i "s/^version = \".*\"/version = \"$VERSION\"/" cli/Cargo.toml
+
+      - name: Build CLI
+        working-directory: cli
+        run: cargo zigbuild --release --no-default-features --target ${{ matrix.target }}
+
+      - name: Rename binary
+        run: |
+          mkdir -p dist
+          cp "cli/target/${{ matrix.target }}/release/tunlit" "dist/tunlit-${{ matrix.name }}-static"
+
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" "dist/tunlit-${{ matrix.name }}-static" --clobber
+
+      - name: Install nfpm
+        if: matrix.deb_arch
+        run: |
+          NFPM_VERSION=2.43.0
+          TMP=$(mktemp -d)
+          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" -o "$TMP/nfpm.tar.gz"
+          tar -xzf "$TMP/nfpm.tar.gz" -C "$TMP" nfpm
+          sudo install -m 0755 "$TMP/nfpm" /usr/local/bin/nfpm
+          rm -rf "$TMP"
+
+      - name: Build the .deb and the .rpm
+        if: matrix.deb_arch
+        env:
+          PKG_VERSION: ${{ inputs.semver }}
+        run: |
+          mkdir -p stage/cli
+          cp "dist/tunlit-${{ matrix.name }}-static" stage/cli/tunlit
+          chmod +x stage/cli/tunlit
+          PKG_ARCH=${{ matrix.deb_arch }} nfpm pkg --config packaging/nfpm-cli-static.yaml --packager deb --target "dist/tunlit-cli-${{ matrix.deb_arch }}.deb"
+          PKG_ARCH=${{ matrix.rpm_arch }} nfpm pkg --config packaging/nfpm-cli-static.yaml --packager rpm --target "dist/tunlit-cli-${{ matrix.rpm_arch }}.rpm"
+
+      - name: Upload the packages
+        if: matrix.deb_arch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.deb dist/*.rpm --clobber

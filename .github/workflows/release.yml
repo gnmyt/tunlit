@@ -133,9 +133,11 @@ jobs:
             echo
             echo "| Platform | x86-64 | ARM64 |"
             echo "| :-- | :-- | :-- |"
-            echo "| **Linux** | [tunlit](../../releases/download/v${VERSION}/tunlit-linux-x64) | [tunlit](../../releases/download/v${VERSION}/tunlit-linux-arm64) |"
+            echo "| **Linux** | [tunlit](../../releases/download/v${VERSION}/tunlit-linux-x64) · [static](../../releases/download/v${VERSION}/tunlit-linux-x64-static) | [tunlit](../../releases/download/v${VERSION}/tunlit-linux-arm64) · [static](../../releases/download/v${VERSION}/tunlit-linux-arm64-static) |"
             echo "| **macOS** | [tunlit](../../releases/download/v${VERSION}/tunlit-macos-x64) | [tunlit](../../releases/download/v${VERSION}/tunlit-macos-arm64) |"
-            echo "| **Windows** | [installer](../../releases/download/v${VERSION}/tunlit-x64.msi) · [tunlit.exe](../../releases/download/v${VERSION}/tunlit-windows-x64.exe) | |"
+            echo "| **Windows** | [installer](../../releases/download/v${VERSION}/tunlit-x64.msi) · [tunlit.exe](../../releases/download/v${VERSION}/tunlit-windows-x64.exe) | [installer](../../releases/download/v${VERSION}/tunlit-arm64.msi) · [tunlit.exe](../../releases/download/v${VERSION}/tunlit-windows-arm64.exe) |"
+            echo
+            echo "Static CLI builds without the desktop app also exist for [ARMv7](../../releases/download/v${VERSION}/tunlit-linux-armv7-static) and [RISC-V](../../releases/download/v${VERSION}/tunlit-linux-riscv64-static), plus deb and rpm packages for both."
             echo
             echo "## Server"
             echo

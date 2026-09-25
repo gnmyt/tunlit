@@ -14,10 +14,12 @@ gui = ["dep:eframe", "dep:rfd", "dep:global-hotkey", "dep:tray-icon", "dep:ksni"
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
-tokio-tungstenite = { version = "0.30", features = ["native-tls"] }
-native-tls = "0.2"
-tokio-native-tls = "0.3"
-reqwest = { version = "0.13", features = ["json", "native-tls"] }
+tokio-tungstenite = { version = "0.30", features = ["rustls-tls-native-roots"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-pki-types = "1"
+rustls-platform-verifier = "0.7"
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider", "system-proxy"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml_ng = "0.10"

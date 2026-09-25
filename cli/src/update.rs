@@ -68,11 +68,16 @@ pub async fn check() -> Option<String> {
 }
 
 fn asset(install: &Install) -> Result<&'static str> {
+    let gui = cfg!(feature = "gui");
     Ok(match (install, std::env::consts::OS, std::env::consts::ARCH) {
-        (Install::Msi, _, _) => "tunlit-x64.msi",
+        (Install::Msi, _, "x86_64") => "tunlit-x64.msi",
+        (Install::Msi, _, "aarch64") => "tunlit-arm64.msi",
         (_, "windows", "x86_64") => "tunlit-windows-x64.exe",
-        (_, "linux", "x86_64") => "tunlit-linux-x64",
-        (_, "linux", "aarch64") => "tunlit-linux-arm64",
+        (_, "windows", "aarch64") => "tunlit-windows-arm64.exe",
+        (_, "linux", "x86_64") => if gui { "tunlit-linux-x64" } else { "tunlit-linux-x64-static" },
+        (_, "linux", "aarch64") => if gui { "tunlit-linux-arm64" } else { "tunlit-linux-arm64-static" },
+        (_, "linux", "arm") => "tunlit-linux-armv7-static",
+        (_, "linux", "riscv64") => "tunlit-linux-riscv64-static",
         (_, "macos", "x86_64") => "tunlit-macos-x64",
         (_, "macos", "aarch64") => "tunlit-macos-arm64",
         (_, os, arch) => bail!("No prebuilt tunlit for {os} {arch}"),

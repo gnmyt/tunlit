@@ -120,7 +120,7 @@ fn status(code: StatusCode) -> Response<Body> {
 async fn connect(target: &Target) -> Result<Box<dyn Stream>> {
     let socket = connect_target(&target.resolve().await?).await?;
     if !target.tls { return Ok(Box::new(socket)); }
-    Ok(Box::new(target.tls_connector()?.connect(&target.host, socket).await?))
+    Ok(Box::new(crate::tls::connect_trusting(&target.host, socket).await?))
 }
 
 trait Stream: AsyncRead + AsyncWrite + Unpin + Send {}

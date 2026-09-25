@@ -76,7 +76,7 @@ sudo dnf install tunlit-cli`,
 chmod +x tunlit && sudo mv tunlit /usr/local/bin/`,
             },
         ],
-        note: "Both repositories carry x86-64 and ARM64. For the plain binary, take tunlit-linux-arm64 on ARM.",
+        note: "The repositories carry x86-64, ARM64, ARMv7 and RISC-V. Plain binaries exist as tunlit-linux-{x64,arm64} with the desktop app and as tunlit-linux-{x64,arm64,armv7,riscv64}-static, one file that runs on any distro.",
     },
     macos: {
         label: "macOS",
@@ -97,7 +97,7 @@ chmod +x tunlit && sudo mv tunlit /usr/local/bin/`,
         label: "Windows",
         blocks: [],
         download: { label: "Download tunlit-x64.msi", url: `${DOWNLOAD}/tunlit-x64.msi` },
-        note: "The installer puts tunlit on your PATH and registers tunlit:// links, so a share page can open the CLI directly. Prefer no installer? tunlit-windows-x64.exe is the same binary on its own.",
+        note: "The installer puts tunlit on your PATH and registers tunlit:// links, so a share page can open the CLI directly. On ARM64 take tunlit-arm64.msi. Prefer no installer? tunlit-windows-x64.exe and tunlit-windows-arm64.exe are the same binary on their own.",
     },
 };
 

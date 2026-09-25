@@ -53,9 +53,10 @@ export const downloadsFor = ({ os, arch }, version) => {
     const file = (name, label) => ({ url: `${base}/${name}`, label });
 
     if (os === "windows") {
+        const suffix = arch === "arm64" ? "arm64" : "x64";
         return { version, all, files: [
-            file("tunlit-x64.msi", "Windows installer"),
-            file("tunlit-windows-x64.exe", "Plain tunlit.exe"),
+            file(`tunlit-${suffix}.msi`, "Windows installer"),
+            file(`tunlit-windows-${suffix}.exe`, "Plain tunlit.exe"),
         ] };
     }
 
@@ -66,9 +67,11 @@ export const downloadsFor = ({ os, arch }, version) => {
     }
 
     const onArm = arch === "arm64";
+    const plain = onArm ? "tunlit-linux-arm64" : "tunlit-linux-x64";
     return { version, all, files: [
         file(`tunlit-cli-${onArm ? "arm64" : "amd64"}.deb`, "Debian, Ubuntu"),
         file(`tunlit-cli-${onArm ? "aarch64" : "x86_64"}.rpm`, "Fedora, RHEL"),
-        file(onArm ? "tunlit-linux-arm64" : "tunlit-linux-x64", "Plain binary"),
+        file(plain, "Plain binary"),
+        file(`${plain}-static`, "Static binary, any distro"),
     ] };
 };

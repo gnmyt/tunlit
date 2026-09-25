@@ -1,0 +1,18 @@
+name: tunlit-cli
+arch: "${PKG_ARCH}"
+platform: linux
+version: "${PKG_VERSION}"
+section: net
+priority: optional
+maintainer: "Mathias Wagner <mathias@gnm.dev>"
+description: |
+  tunlit CLI - shares a local port through your own tunlit server
+vendor: "tunlit"
+homepage: "https://github.com/gnmyt/tunlit"
+license: "MIT"
+
+contents:
+  - src: stage/cli/tunlit
+    dst: /usr/bin/tunlit
+    file_info:
+      mode: 0755

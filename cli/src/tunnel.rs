@@ -60,15 +60,6 @@ impl Target {
         if self.tls { format!("https://{}", self.authority()) } else { self.authority() }
     }
 
-    pub fn tls_connector(&self) -> Result<tokio_native_tls::TlsConnector> {
-        let connector = native_tls::TlsConnector::builder()
-            .danger_accept_invalid_certs(true)
-            .danger_accept_invalid_hostnames(true)
-            .use_sni(self.host.parse::<std::net::IpAddr>().is_err())
-            .build()?;
-        Ok(connector.into())
-    }
-
     pub async fn resolve(&self) -> Result<Vec<SocketAddr>> {
         let addrs: Vec<SocketAddr> = tokio::net::lookup_host((self.host.as_str(), self.port)).await?.collect();
         if addrs.is_empty() { bail!("Could not resolve {}", self.host); }
@@ -286,8 +277,7 @@ async fn handle_stream(writer: crate::mux::MuxWriter, reader: crate::mux::MuxRea
     let Ok(socket) = connect_target(&addrs).await else { writer.reset(); return };
     if !target.tls { return pump_tcp(socket, writer, reader, &shape).await; }
 
-    let handshake = async { target.tls_connector()?.connect(&target.host, socket).await.map_err(anyhow::Error::from) };
-    match tokio::time::timeout(CONNECT_TIMEOUT, handshake).await {
+    match tokio::time::timeout(CONNECT_TIMEOUT, crate::tls::connect_trusting(&target.host, socket)).await {
         Ok(Ok(stream)) => pump_tcp(stream, writer, reader, &shape).await,
         _ => writer.reset(),
     }

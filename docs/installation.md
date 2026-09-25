@@ -69,8 +69,8 @@ irm https://tunlit.dev/install.ps1 | iex
 ```
 
 The script adds the package repository on Debian, Ubuntu, Fedora and RHEL, runs the installer on Windows and puts
-the plain binary in `/usr/local/bin` everywhere else. It stops with a message on architectures other than x86-64
-and ARM64. The manual steps follow.
+the plain binary in `/usr/local/bin` everywhere else. On Linux it picks the static build when the system is older
+than glibc 2.35, has no glibc at all, or runs on ARMv7 or RISC-V. The manual steps follow.
 
 ### Debian, Ubuntu
 
@@ -97,18 +97,21 @@ EOF
 sudo dnf install tunlit-cli
 ```
 
-Both repositories carry x86-64 and ARM64, and `apt upgrade` or `dnf upgrade` keeps the CLI current from then on.
+Both repositories carry x86-64, ARM64, ARMv7 and RISC-V, and `apt upgrade` or `dnf upgrade` keeps the CLI current
+from then on. The ARMv7 and RISC-V packages hold the static CLI without the desktop app.
 
 ### Windows
 
 Download and run
-[tunlit-x64.msi](https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-x64.msi). It installs to
+[tunlit-x64.msi](https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-x64.msi), or
+[tunlit-arm64.msi](https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-arm64.msi) on ARM64. It installs to
 `Program Files`, puts `tunlit` on your `PATH`, adds **tunlit** to the Start menu and registers `tunlit://` links,
 so the **Open in tunlit** button on a share page opens the desktop app.
 
 Prefer no installer?
-[tunlit.exe](https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-windows-x64.exe) is the same binary
-without one.
+[tunlit-windows-x64.exe](https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-windows-x64.exe) and
+[tunlit-windows-arm64.exe](https://github.com/gnmyt/tunlit/releases/latest/download/tunlit-windows-arm64.exe) are
+the same binary without one.
 
 ### macOS, or any other Linux
 
@@ -120,7 +123,9 @@ chmod +x tunlit && sudo mv tunlit /usr/local/bin/
 ```
 
 Swap the file name for the build you need: `tunlit-macos-arm64`, `tunlit-macos-x64`, `tunlit-linux-x64` or
-`tunlit-linux-arm64`.
+`tunlit-linux-arm64`. The Linux files need glibc 2.35 or newer. The static builds `tunlit-linux-x64-static`,
+`tunlit-linux-arm64-static`, `tunlit-linux-armv7-static` and `tunlit-linux-riscv64-static` run on any Linux, including
+Alpine and older distributions, and leave out the desktop app.
 
 ### Updating
 
