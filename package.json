@@ -1,6 +1,6 @@
 {
   "name": "tunlit",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Self-hosted tunnels: subdomain, path and direct TCP/UDP behind one public port",
   "main": "server/index.js",
   "repository": "https://github.com/gnmyt/tunlit.git",
