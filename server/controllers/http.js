@@ -114,7 +114,7 @@ const createRouter = ({ config, auth, registry, traffic, visitors, breakpoints, 
 
     const handleUi = async (req, res, info, pathname) => {
         if (pathname === API_PREFIX || pathname.startsWith(`${API_PREFIX}/`)) {
-            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, visitors, breakpoints, connections, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, onRequest, info });
+            const handled = await api.handle(req, res, pathname, { config, auth, registry, traffic, visitors, breakpoints, connections, access, stats, devices, sessions, attempts, certificates, domains, quotas, frames, intel, onRequest, info });
             if (!handled) sendJson(res, 404, { error: "not_found" });
             return;
         }
@@ -268,6 +268,7 @@ const createRouter = ({ config, auth, registry, traffic, visitors, breakpoints, 
                 .then(() => handleRequest(req, res))
                 .catch(err => {
                     logger.error(`request failed: ${err.stack || err}`);
+                    if (res.writableEnded) return;
                     if (!res.headersSent) res.writeHead(500, { "Content-Type": "text/plain" });
                     res.end("Internal error");
                 });
