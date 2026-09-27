@@ -20,6 +20,7 @@ export const CertificatePanel = ({ status, onChanged }) => {
     const { sendToast } = useToast();
     const [busy, setBusy] = useState(false);
     const state = STATES[status.state] || STATES.none;
+    const several = status.pendingRecords.length > 1;
 
     const act = async (path, success) => {
         setBusy(true);
@@ -50,15 +51,17 @@ export const CertificatePanel = ({ status, onChanged }) => {
 
             {status.pendingRecords.length > 0 && (
                 <div className="certificate-records">
-                    <p>Add {status.pendingRecords.length === 1 ? "this TXT record" : "these TXT records"} at your DNS
-                        provider, then continue. Let&apos;s Encrypt checks it from the outside, so give it a moment to spread.</p>
+                    <p>{several
+                        ? "Add each of these as its own TXT record at your DNS provider, then continue. Keep both, even on the same name."
+                        : "Add this TXT record at your DNS provider, then continue."}
+                        {" "}Let&apos;s Encrypt checks from the outside, so give it a moment to spread.</p>
                     {status.pendingRecords.map(record => (
                         <div className="certificate-record" key={record.value}>
                             <span>{record.record}</span>
                             <CopyField value={record.value} />
                         </div>
                     ))}
-                    <Button text="I added the record" onClick={() => act("tls/continue", "Checking the record")} disabled={busy} />
+                    <Button text={several ? "I added the records" : "I added the record"} onClick={() => act("tls/continue", "Checking the records")} disabled={busy} />
                 </div>
             )}
 
