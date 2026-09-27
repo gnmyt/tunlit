@@ -1,11 +1,11 @@
 import { TlsDiagram } from "./TlsDiagram.jsx";
 import { TLS_MODES } from "./modes.js";
 
-export const TlsChoice = ({ value, onChange, onPreview }) => (
+export const TlsChoice = ({ value, onChange, onPreview, disabled }) => (
     <div className="mode-choices" onMouseLeave={() => onPreview?.(null)}>
         {Object.entries(TLS_MODES).map(([mode, details]) => (
             <button type="button" key={mode} aria-pressed={value === mode}
-                    className={`mode-choice${value === mode ? " selected" : ""}`}
+                    className={`mode-choice${value === mode ? " selected" : ""}`} disabled={disabled && value !== mode}
                     onMouseEnter={() => onPreview?.(mode)}
                     onFocus={() => onPreview?.(mode)}
                     onClick={() => onChange(mode)}>

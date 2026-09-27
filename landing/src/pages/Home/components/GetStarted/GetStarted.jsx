@@ -6,8 +6,9 @@ import CodeBlock from "@/common/components/CodeBlock";
 const DOCKER = `docker run -d \\
   --name tunlit \\
   --restart always \\
-  --network host \\
+  -p 80:80 -p 443:443 \\
   -v tunlit-data:/app/data \\
+  -e TUNLIT_TLS_MODE=acme \\
   germannewsmaker/tunlit:latest`;
 
 export const GetStarted = () => (

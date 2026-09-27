@@ -66,7 +66,7 @@ request the certificate from is otherwise behind a handshake that cannot succeed
 
 | Key | Environment variable | Default | Description |
 |---|---|---|---|
-| `tlsMode` | `TUNLIT_TLS_MODE` | `proxy` | `proxy` or `acme`. |
+| `tlsMode` | `TUNLIT_TLS_MODE` | `proxy` | `proxy` or `acme`. When set through the environment it is fixed in the web UI, because the container's ports were mapped for it. Otherwise switching needs a restart. |
 | `httpsPort` | `TUNLIT_HTTPS_PORT` | `443` | Where traffic is served in `acme` mode. |
 | `redirectPort` | `TUNLIT_REDIRECT_PORT` | `80` | Redirects to HTTPS and answers HTTP challenges. |
 | `acmeDirectoryUrl` | `TUNLIT_ACME_DIRECTORY` | - | Another ACME server: a private CA, Buypass, or Let's Encrypt staging while you are debugging. |

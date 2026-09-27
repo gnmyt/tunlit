@@ -23,7 +23,7 @@ gracePeriod: 30
 | `port` | `TUNLIT_PORT` | `8080` | The one and only port. HTTP, WebSockets and the CLI control channel all use it. |
 | `baseDomain` | `TUNLIT_BASE_DOMAIN` | - (setup) | Your tunnel domain. Subdomain tunnels become `<id>.<baseDomain>`, path-mode tunnels live on `<baseDomain>` itself. |
 | `publicUrl` | `TUNLIT_PUBLIC_URL` | `https://<baseDomain>` | What the server prints as the public URL. Use `http://…` for local testing without TLS. |
-| `tlsMode` | `TUNLIT_TLS_MODE` | `proxy` | `proxy` if something terminates TLS in front of tunlit, `acme` if tunlit should get its own certificates. See [HTTPS](/https). |
+| `tlsMode` | `TUNLIT_TLS_MODE` | `proxy` | `proxy` if something terminates TLS in front of tunlit, `acme` if tunlit should get its own certificates. Set through the environment, it cannot be changed in the web UI. See [HTTPS](/https). |
 | `trustProxy` | `TUNLIT_TRUST_PROXY` | `false` | Use `X-Forwarded-Host`, `X-Forwarded-Proto` and `X-Forwarded-For` from nginx. Turn this on only when nothing but your proxy can reach the port: the IP allowlist and the login rate limit both believe whatever address these headers carry. |
 | `httpMode` | `TUNLIT_HTTP_MODE` | `subdomain` | How `tunlit http` tunnels are exposed. `subdomain`: `https://<id>.<baseDomain>` (needs the wildcard DNS record and certificate). `path`: `https://<baseDomain>/@<id>`, bound per browser tab (no wildcard needed). |
 | `gracePeriod` | `TUNLIT_GRACE_PERIOD` | `30` | Seconds a tunnel id stays reserved after the owner's CLI drops. The CLI reconnects automatically and keeps the same URL/share code. Ctrl+C releases immediately. |

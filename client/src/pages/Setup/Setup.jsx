@@ -21,13 +21,14 @@ export const Setup = () => {
     const { setupRequired, setSetupRequired, login } = useUser();
     const navigate = useNavigate();
     const [settings, setSettings] = useState(null);
+    const [sources, setSources] = useState({});
     const [step, setStep] = useState(0);
     const [account, setAccount] = useState({ username: "", password: "", confirm: "" });
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         getRequest("setup/status")
-            .then(data => setSettings(data.settings))
+            .then(data => { setSettings(data.settings); setSources(data.sources); })
             .catch(error => sendToast("Error", error.message));
     }, [sendToast]);
 
@@ -70,7 +71,7 @@ export const Setup = () => {
             {step === 0 && <WelcomeStep onNext={() => setStep(1)} />}
             {step === 1 && <AccountStep account={account} setAccount={setAccount} onBack={() => setStep(0)} onNext={() => setStep(2)} />}
             {step === 2 && <ForwardingStep settings={settings} setSettings={setSettings} onBack={() => setStep(1)} onNext={() => setStep(3)} />}
-            {step === 3 && <HttpsStep settings={settings} setSettings={setSettings} onBack={() => setStep(2)} onNext={() => setStep(4)} />}
+            {step === 3 && <HttpsStep settings={settings} setSettings={setSettings} pinned={sources.tlsMode === "env"} onBack={() => setStep(2)} onNext={() => setStep(4)} />}
             {step === 4 && <ServerStep settings={settings} setSettings={setSettings} onBack={() => setStep(3)} onNext={complete} submitting={submitting} />}
             {step === 5 && <DoneStep username={account.username} onFinish={finish} />}
         </div>

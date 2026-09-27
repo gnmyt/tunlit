@@ -25,34 +25,39 @@ const Option = ({ label, hint, children }) => (
     </div>
 );
 
-const dockerRun = ({ host, port, storage }) => [
+const ports = ({ acme, port }) => (acme ? ["80:80", "443:443"] : [`127.0.0.1:${port}:8080`]);
+
+const dockerRun = settings => [
     "docker run -d",
     "  --name tunlit",
     "  --restart always",
-    host ? "  --network host" : `  -p 127.0.0.1:${port}:8080`,
-    `  -v ${storage}:/app/data`,
+    ...ports(settings).map(entry => `  -p ${entry}`),
+    `  -v ${settings.storage}:/app/data`,
+    ...(settings.acme ? ["  -e TUNLIT_TLS_MODE=acme"] : []),
     `  ${IMAGE}`,
 ].join(" \\\n");
 
-const compose = ({ host, port, storage, named }) => [
+const compose = settings => [
     "services:",
     "  tunlit:",
     `    image: ${IMAGE}`,
     "    restart: always",
-    ...(host ? ["    network_mode: host"] : ["    ports:", `      - "127.0.0.1:${port}:8080"`]),
+    "    ports:",
+    ...ports(settings).map(entry => `      - "${entry}"`),
     "    volumes:",
-    `      - ${storage}:/app/data`,
-    ...(named ? ["", "volumes:", `  ${storage}:`] : []),
+    `      - ${settings.storage}:/app/data`,
+    ...(settings.acme ? ["    environment:", "      TUNLIT_TLS_MODE: acme"] : []),
+    ...(settings.named ? ["", "volumes:", `  ${settings.storage}:`] : []),
 ].join("\n");
 
 export const Setup = () => {
-    const [host, setHost] = useState(true);
+    const [acme, setAcme] = useState(true);
     const [method, setMethod] = useState("docker");
     const [named, setNamed] = useState(true);
     const [storage, setStorage] = useState("tunlit-data");
     const [port, setPort] = useState("8080");
 
-    const settings = { host, port: port.trim() || "8080", storage: storage.trim() || (named ? "tunlit-data" : "./tunlit-data"), named };
+    const settings = { acme, port: port.trim() || "8080", storage: storage.trim() || (named ? "tunlit-data" : "./tunlit-data"), named };
     const output = method === "docker" ? dockerRun(settings) : compose(settings);
 
     return (
@@ -77,10 +82,10 @@ export const Setup = () => {
                     <h2>Your setup</h2>
                 </div>
                 <div className="setup-options">
-                    <Option label="Network" hint={host ? "8080, or 443 and 80" : "8080 only, behind a proxy"}>
-                        <Switch value={host ? "host" : "bridge"} onChange={value => setHost(value === "host")} options={[["host", "Host"], ["bridge", "Bridge"]]} />
+                    <Option label="HTTPS" hint={acme ? "Ports 80 and 443, certificates from Let\u2019s Encrypt" : "nginx, Caddy or Traefik in front"}>
+                        <Switch value={acme ? "acme" : "proxy"} onChange={value => setAcme(value === "acme")} options={[["acme", "tunlit"], ["proxy", "Reverse proxy"]]} />
                     </Option>
-                    {!host && (
+                    {!acme && (
                         <Option label="Port">
                             <input type="text" value={port} onChange={event => setPort(event.target.value)} placeholder="8080" inputMode="numeric" />
                         </Option>
@@ -112,7 +117,7 @@ export const Setup = () => {
                     <h2>Finish in the browser</h2>
                 </div>
                 <div className="setup-finish">
-                    <p>Open <code>http://&lt;server&gt;:{host ? "8080" : settings.port}/@tunlit</code> and follow the wizard.</p>
+                    <p>Open <code>{acme ? "http://<server>/@tunlit" : `http://<server>:${settings.port}/@tunlit`}</code> and follow the wizard.</p>
                     <p><a href={`${DOCS_URL}/reverse-proxy`} target="_blank" rel="noreferrer">Reverse proxy</a> · <a href={`${DOCS_URL}/https`} target="_blank" rel="noreferrer">HTTPS</a></p>
                 </div>
             </section>

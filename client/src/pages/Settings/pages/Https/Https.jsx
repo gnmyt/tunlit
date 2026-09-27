@@ -20,6 +20,7 @@ export const Https = () => {
     const [preview, setPreview] = useState(null);
     const [acme, setAcme] = useState({ email: "", provider: "manual", credential: "" });
     const [trustProxy, setTrustProxy] = useState(false);
+    const [pinned, setPinned] = useState(false);
     const [saving, setSaving] = useState(false);
 
     const load = useCallback(async (quiet = false) => {
@@ -27,6 +28,7 @@ export const Https = () => {
             const [tls, settings] = await Promise.all([getRequest("tls"), getRequest("settings")]);
             setData(tls);
             setTrustProxy(!!settings.settings.trustProxy);
+            setPinned(settings.sources.tlsMode === "env");
             if (!quiet) {
                 setMode(tls.mode);
                 setAcme({ ...tls.acme, email: tls.acme.email || "", credential: "" });
@@ -80,11 +82,11 @@ export const Https = () => {
         <section className="settings-panel">
             <div className="settings-head">
                 <h2>HTTPS</h2>
-                <p>Who holds the certificate for {data.status.domains.join(" and ")}.</p>
+                <p>Who holds the certificate for {data.status.domains.join(" and ")}.{pinned && <> Set by <code>TUNLIT_TLS_MODE</code>.</>}</p>
             </div>
 
             <div className="tls-layout">
-                <TlsChoice value={mode} onChange={setMode} onPreview={setPreview} />
+                <TlsChoice value={mode} onChange={setMode} onPreview={setPreview} disabled={pinned} />
                 <TlsExplainer mode={preview || mode} />
             </div>
 

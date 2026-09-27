@@ -27,6 +27,13 @@
   &:hover
     border-color: colors.$border-strong
 
+  &:disabled
+    opacity: 0.45
+    cursor: not-allowed
+
+    &:hover
+      border-color: colors.$border
+
   &.selected
     border-color: colors.$primary
     background-color: colors.$primary-tint

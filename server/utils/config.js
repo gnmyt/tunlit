@@ -31,6 +31,9 @@ const ENV = {
 };
 
 const UI_SETTING_KEYS = ["baseDomain", "publicUrl", "httpMode", "gracePeriod", "tlsMode", "trustProxy"];
+const PINNED_BY_ENV = { tlsMode: "The HTTPS mode" };
+
+const pinned = (config, key) => key in PINNED_BY_ENV && config.sources[key] === "env";
 
 const parseBool = value => ["1", "true", "yes", "on"].includes(String(value).trim().toLowerCase());
 
@@ -96,7 +99,14 @@ const loadConfig = () => {
     return config;
 };
 
-const applySettings = (config, settings) => {
+const applySettings = (config, requested) => {
+    const settings = { ...requested };
+    for (const key of Object.keys(settings).filter(key => pinned(config, key))) {
+        if (String(settings[key]).trim().toLowerCase() !== config[key]) {
+            throw Object.assign(new Error(`${PINNED_BY_ENV[key]} is set by ${ENV[key]}`), { code: "invalid_settings" });
+        }
+        delete settings[key];
+    }
     const next = { ...config, ...settings };
     if ("publicUrl" in settings) next.publicUrlConfigured = settings.publicUrl;
     normalize(next);
@@ -110,7 +120,7 @@ const applySettings = (config, settings) => {
 const applyStored = (config, stored) => {
     for (const key of UI_SETTING_KEYS) {
         const value = stored[key];
-        if (value === undefined || value === null || value === "") continue;
+        if (value === undefined || value === null || value === "" || pinned(config, key)) continue;
         config[key] = value;
         config.sources[key] = "ui";
     }

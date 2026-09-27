@@ -4,7 +4,7 @@ import Toggle from "@/common/components/Toggle";
 import { TlsChoice, TlsExplainer } from "@/common/components/TlsChoice";
 import { usePublicAside } from "@/common/layouts/aside.js";
 
-export const HttpsStep = ({ settings, setSettings, onBack, onNext }) => {
+export const HttpsStep = ({ settings, setSettings, pinned, onBack, onNext }) => {
     const selected = settings.tlsMode || "proxy";
     const [preview, setPreview] = useState(null);
     const shown = preview || selected;
@@ -21,10 +21,10 @@ export const HttpsStep = ({ settings, setSettings, onBack, onNext }) => {
         <div>
             <div className="form-head">
                 <h1>HTTPS.</h1>
-                <p>Who holds the certificate. This can be changed later.</p>
+                <p>{pinned ? <>Set by <code>TUNLIT_TLS_MODE</code> when the server was started.</> : "Who holds the certificate. Switching later needs a restart."}</p>
             </div>
 
-            <TlsChoice value={selected} onPreview={setPreview}
+            <TlsChoice value={selected} onPreview={setPreview} disabled={pinned}
                        onChange={mode => setSettings({ ...settings, tlsMode: mode })} />
             <div className="mode-explainer-inline"><TlsExplainer mode={shown} /></div>
 
