@@ -47,7 +47,7 @@ impl Window<'_> {
                             widgets::mono(ui, card.title(), 14.0, theme::TEXT);
                             widgets::text(ui, card.kind.label(), 12.0, theme::MUTED);
                             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                widgets::text(ui, "›", 16.0, theme::MUTED);
+                                widgets::chevron_right(ui, theme::MUTED);
                                 widgets::text(ui, format::ago(card.started), 12.0, theme::MUTED);
                             });
                         });
@@ -106,7 +106,7 @@ impl Window<'_> {
                         ui.add_space(10.0);
                         if state.login.use_key {
                             submit |= widgets::field(ui, "login-key", &mut state.login.key,
-                                FieldOptions { label: Some("API key"), hint: "from Settings › Devices", mono: true, secret: true, ..Default::default() }).lost_focus()
+                                FieldOptions { label: Some("API key"), hint: "Created under Devices in the web UI", mono: true, secret: true, ..Default::default() }).lost_focus()
                                 && ui.input(|input| input.key_pressed(egui::Key::Enter));
                             ui.add_space(10.0);
                         }

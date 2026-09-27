@@ -19,11 +19,11 @@ saved to `~/.config/tunlit/config.json` (`%APPDATA%\tunlit\config.json` on Windo
 `~/Library/Application Support/tunlit/config.json` on macOS).
 
 There is no shared secret: every machine holds its own token, and each one can be revoked separately under
-Settings › Devices in the web UI.
+**Settings**, **Devices** in the web UI.
 
 ### Invite links
 
-Someone without an account can tunnel through your server with an invite link, created under Settings › Devices
+Someone without an account can tunnel through your server with an invite link, created under **Settings**, **Devices**
 in the web UI. Opening the link offers "Open in tunlit" and the command to run:
 
 ```sh
@@ -35,7 +35,7 @@ and revoking the link closes them.
 
 ### API keys
 
-For a machine without a browser, CI, or scripts, create an API key under Settings › Devices in the web UI and link
+For a machine without a browser, CI, or scripts, create an API key under **Settings**, **Devices** in the web UI and link
 with it directly:
 
 ```sh
@@ -78,7 +78,7 @@ it got. See [Introduction](/introduction) for what each mode does to the URL.
 
 ```
 ✓ Tunnel myapp is online
-  https://myapp.tunlit.example.com  →  192.168.1.5:8080
+  https://myapp.tunlit.example.com  forwards to 192.168.1.5:8080
 
   [QR code]
 ✓ Copied to clipboard
@@ -210,7 +210,7 @@ so the other side pastes one thing and needs nothing else. Opening it in a brows
 copy button.
 
 ```
-✓ Forwarding 127.0.0.1:25565 (tcp+udp) → k3x9ab
+✓ Forwarding 127.0.0.1:25565 (tcp+udp) to k3x9ab
 Press Ctrl+C to stop.
 ```
 
@@ -262,7 +262,7 @@ package manager are left to it.
 tunlit logout
 ```
 
-Removes this device's token; the server URL is kept. Revoke it on the server too, under Settings › Devices.
+Removes this device's token; the server URL is kept. Revoke it on the server too, under **Settings**, **Devices**.
 
 ## Reconnects
 

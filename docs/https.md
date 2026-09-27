@@ -1,7 +1,7 @@
 # 🔒 HTTPS
 
 tunlit never speaks plain HTTP to the internet. Two ways to get there, and you pick one during the guided setup or
-later under **Settings → HTTPS**. The options for the other one stay out of your way.
+later under **Settings**, **HTTPS**. The options for the other one stay out of your way.
 
 ## 🧭 Which one
 
@@ -60,7 +60,7 @@ renewal needs you to be there again, so it is not a good long-term answer.
 
 Until there is one, a server in this mode serves the web UI over plain HTTP on port 80, because the page you would
 request the certificate from is otherwise behind a handshake that cannot succeed. Finish the setup, open
-**Settings → HTTPS**, press *Request certificate*, and the redirect takes over once it lands.
+**Settings**, **HTTPS**, press *Request certificate*, and the redirect takes over once it lands.
 
 ## ⚙️ Keys
 

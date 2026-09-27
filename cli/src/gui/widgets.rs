@@ -267,9 +267,35 @@ pub fn segmented<T: PartialEq + Copy>(ui: &mut Ui, current: &mut T, options: &[(
         });
 }
 
+fn paint_arrow(painter: &egui::Painter, center: egui::Pos2, size: f32, pointing: f32, stroke: Stroke) {
+    let half = size / 2.0;
+    let wing = size * 0.32;
+    let tip = center + egui::vec2(half * pointing, 0.0);
+    painter.line_segment([center - egui::vec2(half * pointing, 0.0), tip], stroke);
+    painter.line_segment([tip, tip + egui::vec2(-wing * pointing, -wing)], stroke);
+    painter.line_segment([tip, tip + egui::vec2(-wing * pointing, wing)], stroke);
+}
+
+pub fn arrow_right(ui: &mut Ui, color: Color32) {
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(14.0, 14.0), Sense::hover());
+    paint_arrow(ui.painter(), rect.center(), 10.0, 1.0, Stroke::new(1.4, color));
+}
+
+pub fn chevron_right(ui: &mut Ui, color: Color32) {
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(12.0, 14.0), Sense::hover());
+    let center = rect.center();
+    let stroke = Stroke::new(1.5, color);
+    ui.painter().line_segment([center + egui::vec2(-2.0, -4.0), center + egui::vec2(2.0, 0.0)], stroke);
+    ui.painter().line_segment([center + egui::vec2(2.0, 0.0), center + egui::vec2(-2.0, 4.0)], stroke);
+}
+
 pub fn back_link(ui: &mut Ui, label: &str) -> Response {
-    let response = ui.add(egui::Label::new(RichText::new(format!("←  {label}")).size(13.0).color(theme::MUTED)).sense(Sense::click()));
+    let galley = ui.painter().layout_no_wrap(label.to_string(), theme::font(13.0, theme::medium()), Color32::WHITE);
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(galley.size().x + 20.0, galley.size().y.max(14.0)), Sense::click());
+    let color = if response.hovered() { theme::TEXT } else { theme::MUTED };
     if response.hovered() { ui.ctx().set_cursor_icon(CursorIcon::PointingHand); }
+    paint_arrow(ui.painter(), egui::pos2(rect.left() + 6.0, rect.center().y), 10.0, -1.0, Stroke::new(1.4, color));
+    ui.painter().galley(egui::pos2(rect.left() + 20.0, rect.center().y - galley.size().y / 2.0), galley, color);
     response
 }
 

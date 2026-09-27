@@ -7,7 +7,7 @@ can have custom domains. The target still comes from the CLI each time:
 tunlit http 3000 --name myapp
 ```
 
-Reserve a name under **Tunnels → Reserve a name**, or press **Keep** on a running tunnel. **Release** makes it an
+Reserve a name with **Reserve a name** on the Tunnels page, or press **Keep** on a running tunnel. **Release** makes it an
 ordinary tunnel again. To keep it up without a terminal, see [Running as a service](/service).
 
 ## Custom domains

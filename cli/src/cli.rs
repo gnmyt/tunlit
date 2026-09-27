@@ -81,7 +81,7 @@ fn print_ready(online: &Online, target_label: &str, server_url: &str, shape: &Sh
     let kind = if online.persistent { style(" (persistent)").dim().to_string() } else { String::new() };
     println!("{} Tunnel {} is online{kind}", ok(), style(&online.id).cyan().bold());
     if let Some(url) = &online.url {
-        println!("  {}  {}  {}", style(url).cyan().bold().underlined(), style("→").dim(), style(target_label).bold());
+        println!("  {}  {} {}", style(url).cyan().bold().underlined(), style("forwards to").dim(), style(target_label).bold());
         for custom in &online.custom_urls {
             println!("  {}", style(custom).cyan().underlined());
         }
@@ -173,8 +173,7 @@ pub async fn connect(target: String, port: Option<u16>, bind: String, server: Op
         JoinEvent::Connecting => printer.busy("Connecting to server...".into()),
         JoinEvent::Forwarding { bind, port, tunnel_id, owner_online } => {
             printer.idle();
-            println!("{} Forwarding {} (tcp+udp) {} {}", ok(),
-                style(format!("{bind}:{port}")).cyan().bold(), style("→").dim(), style(&tunnel_id).bold().green());
+            println!("{} Forwarding {} (tcp+udp) to {}", ok(), style(format!("{bind}:{port}")).cyan().bold(), style(&tunnel_id).bold().green());
             if !owner_online { println!("{} The owner is currently offline, connections will work once it is back", warn()); }
             println!("Press {} to stop.", style("Ctrl+C").bold());
         }
@@ -250,7 +249,7 @@ pub async fn update() -> Result<()> {
         println!("{} tunlit {} is the latest version", ok(), style(update::CURRENT).cyan());
         return Ok(());
     }
-    println!("tunlit {} → {}", style(update::CURRENT).dim(), style(&latest).cyan().bold());
+    println!("Updating tunlit {} to {}", style(update::CURRENT).dim(), style(&latest).cyan().bold());
     if install == update::Install::Managed {
         println!("  This tunlit was installed by a package manager and is updated through it.");
         return Ok(());
@@ -315,6 +314,6 @@ pub fn logout() -> Result<()> {
         return Ok(());
     }
     println!("{} Token removed from this device", ok());
-    println!("  {}", style("Revoke it on the server under Settings › Devices.").dim());
+    println!("  {}", style("Revoke it on the server too, on the Devices settings page.").dim());
     Ok(())
 }

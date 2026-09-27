@@ -46,7 +46,7 @@ export const HttpsStep = ({ settings, setSettings, onBack, onNext }) => {
                             ? " A wildcard needs a DNS challenge, so have an API token for your DNS provider ready."
                             : " Point the domain at this machine and it can use an HTTP challenge, no DNS token needed."}
                     </p>
-                    <p>Finish the setup first, then request the certificate under Settings → HTTPS.</p>
+                    <p>Finish the setup first, then request the certificate on the HTTPS settings page.</p>
                 </div>
             )}
 

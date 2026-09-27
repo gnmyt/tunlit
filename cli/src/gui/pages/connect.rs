@@ -59,7 +59,7 @@ impl Window<'_> {
                             ui.set_max_width(ui.available_width() - 84.0);
                             if let Some(forwarding) = &join.forwarding {
                                 widgets::mono(ui, format!("Port {}", forwarding.port), 14.0, theme::TEXT);
-                                widgets::text(ui, "→", 13.0, theme::MUTED);
+                                widgets::arrow_right(ui, theme::MUTED);
                                 ui.add(egui::Label::new(egui::RichText::new(&forwarding.tunnel_id).size(13.0).color(theme::PRIMARY_BRIGHT).family(theme::mono())).truncate());
                             } else {
                                 ui.add(egui::Label::new(egui::RichText::new(&join.target).size(12.5).color(theme::SUBTEXT).family(theme::mono())).truncate());
