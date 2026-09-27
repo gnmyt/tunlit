@@ -2,7 +2,8 @@ const { Router } = require("../utils/router");
 const packageJson = require("../../package.json");
 const { evaluate, cookieFor } = require("../lib/access");
 const { verifyPassword } = require("../utils/password");
-const { checkAccountCredentials } = require("../controllers/auth");
+const { tokenFromRequest: sessionToken } = require("../lib/sessions");
+const { classifyHost, QUERY_PARAM } = require("../lib/proxy");
 const logger = require("../utils/logger");
 
 const app = Router();
@@ -32,25 +33,51 @@ app.post("/gate/:id", async (req, res) => {
     if (evaluate(policy, req.info.clientIp, req.intel.lookup(req.info.clientIp))) {
         return res.status(403).json({ error: "forbidden", message: "Your address is not allowed to use this tunnel" });
     }
-    if (policy.auth === "none") return res.json({ ok: true });
+    if (policy.auth !== "password") return res.status(400).json({ error: "bad_request", message: "This tunnel does not use a password" });
 
     const key = `gate:${tunnel.id}:${req.info.clientIp}`;
     if (req.attempts.blocked(key)) {
         return res.status(429).json({ error: "too_many_attempts", message: "Too many attempts. Please try again later." });
     }
 
-    const accepted = policy.auth === "password"
-        ? await verifyPassword(String(req.body.password || ""), policy.passwordHash)
-        : await checkAccountCredentials({ username: req.body.username, password: req.body.password });
-    if (!accepted) {
+    if (!await verifyPassword(String(req.body.password || ""), policy.passwordHash)) {
         req.attempts.record(key);
         logger.warn(`Failed gate attempt for ${tunnel.id}`, { ip: req.info.clientIp });
-        return res.status(401).json({ error: "unauthorized", message: policy.auth === "password" ? "Wrong password" : "Username or password incorrect" });
+        return res.status(401).json({ error: "unauthorized", message: "Wrong password" });
     }
 
     req.attempts.forget(key);
     const token = req.access.create(tunnel.id);
     res.header("Set-Cookie", cookieFor(token, req.info.secure)).json({ ok: true });
+});
+
+const redirect = (res, location) => res.raw.writeHead(302, { Location: location, "Cache-Control": "no-store" }).end();
+
+const returnTarget = (req, tunnel, raw) => {
+    const url = URL.parse(raw);
+    if (!url || !["http:", "https:"].includes(url.protocol)) return null;
+    const host = classifyHost(url.hostname, req.config.baseDomain);
+    if (host.kind === "base") {
+        url.searchParams.delete(QUERY_PARAM);
+        return { url, to: `/@${tunnel.id}${url.pathname}${url.search}` };
+    }
+    const owner = host.kind === "subdomain" ? host.id : req.domains.tunnelFor(url.hostname);
+    return owner === tunnel.id ? { url, to: `${url.pathname}${url.search}` } : null;
+};
+
+app.get("/gate/:id/authorize", async (req, res) => {
+    const tunnel = req.registry.get(req.params.id.toLowerCase());
+    if (!tunnel || tunnel.policy.auth !== "tunlit") return res.status(404).json({ error: "not_found", message: "Tunnel not found" });
+    if (evaluate(tunnel.policy, req.info.clientIp, req.intel.lookup(req.info.clientIp))) {
+        return res.status(403).json({ error: "forbidden", message: "Your address is not allowed to use this tunnel" });
+    }
+    const target = returnTarget(req, tunnel, req.query.get("return"));
+    if (!target) return res.status(400).json({ error: "bad_request", message: "That return address does not belong to this tunnel" });
+
+    if (!await req.sessions.get(sessionToken(req.raw))) return redirect(res, `/@tunlit/login?next=${encodeURIComponent(req.raw.url)}`);
+
+    const code = req.access.issueCode(tunnel.id, target.url.hostname);
+    redirect(res, `${target.url.origin}/@tunlit/gate?code=${code}&to=${encodeURIComponent(target.to)}`);
 });
 
 module.exports = app;

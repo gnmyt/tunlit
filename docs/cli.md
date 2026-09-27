@@ -152,7 +152,7 @@ tunlit tcp 25565 --block-country ru          # rules work for tcp too
 | `--block-country <code>`  | Never these countries.                                             |
 | `--block <category>`      | Never `tor`, `vpn`, `datacenter` or `blocklist` addresses.         |
 | `--password <password>`   | HTTP only. Visitors get a password prompt, `curl -u any:<password>` works. |
-| `--require-login`         | HTTP only. Visitors sign in with the tunlit admin account.         |
+| `--require-login`         | HTTP only. Visitors sign in on your tunlit login page, passkeys and SSO included. `curl -u` works for accounts without two-factor. |
 
 All flags repeat or take comma-separated values. Block rules win over allow rules. `--password` and `--require-login`
 are mutually exclusive. Rules can be changed later in the web UI, the CLI prints the new rules and they survive a reconnect.

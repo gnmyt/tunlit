@@ -64,8 +64,10 @@ app.get("/providers", async (req, res) => {
     res.json({ providers: await oidc.enabled() });
 });
 
+const safeNext = next => (typeof next === "string" && /^\/@tunlit\/[^/\\]/.test(next) ? next : null);
+
 app.post("/oidc/:id/start", async (req, res) => {
-    const result = await oidc.begin(Number(req.params.id), req.config);
+    const result = await oidc.begin(Number(req.params.id), req.config, safeNext(req.body.next));
     if (result.code) return res.status(result.code).json(result);
     res.json(result);
 });
@@ -86,7 +88,7 @@ app.get("/oidc/callback", async (req, res) => {
         ip: req.info.clientIp, userAgent: req.headers["user-agent"] || "",
     });
     res.raw.writeHead(302, {
-        Location: target,
+        Location: result.next ? `${req.config.publicUrl}${result.next}` : target,
         "Set-Cookie": sessionCookie(token, req.info.secure),
         "Cache-Control": "no-store",
     }).end();

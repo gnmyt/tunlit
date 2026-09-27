@@ -82,7 +82,7 @@ const remove = async id => {
     return { message: `${provider.name} removed` };
 };
 
-const begin = async (id, config) => {
+const begin = async (id, config, next) => {
     const provider = await OidcProvider.findOne({ where: { id, enabled: true } });
     if (!provider) return { code: 404, message: "That provider is not available" };
 
@@ -93,7 +93,7 @@ const begin = async (id, config) => {
         const codeVerifier = client.randomPKCECodeVerifier();
         const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
 
-        remember(state, { nonce, codeVerifier, providerId: provider.id });
+        remember(state, { nonce, codeVerifier, providerId: provider.id, next });
 
         const url = client.buildAuthorizationUrl(configuration, {
             redirect_uri: redirectUri(config),
@@ -150,7 +150,7 @@ const complete = async (query, config) => {
         }
 
         logger.info(`${account.username} signed in through ${provider.name}`);
-        return { account };
+        return { account, next: entry.next };
     } catch (err) {
         logger.error(`OIDC sign-in failed: ${err.message}`);
         return { code: 502, message: err.message };

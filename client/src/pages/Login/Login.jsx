@@ -23,6 +23,8 @@ export const Login = () => {
     const [providers, setProviders] = useState([]);
     const [loading, setLoading] = useState(false);
     const formRef = useRef(null);
+    const requested = params.get("next");
+    const next = /^\/@tunlit\/[^/\\]/.test(requested) ? requested : null;
 
     useAutofill(formRef, filled => {
         if (filled.username) setUsername(current => current || filled.username);
@@ -38,10 +40,15 @@ export const Login = () => {
         if (error) sendToast("Error", error);
     }, [params, sendToast]);
 
+    useEffect(() => {
+        if (user && next) window.location.replace(next);
+    }, [user, next]);
+
     if (setupRequired) return <Navigate to="/setup" replace />;
-    if (user) return <Navigate to={location.state?.from || "/tunnels"} replace />;
+    if (user && !next) return <Navigate to={location.state?.from || "/tunnels"} replace />;
 
     const done = async () => {
+        if (next) return window.location.replace(next);
         await login();
         navigate(location.state?.from || "/tunnels", { replace: true });
     };
@@ -86,7 +93,7 @@ export const Login = () => {
 
     const withProvider = async provider => {
         try {
-            const { url } = await postRequest(`auth/oidc/${provider.id}/start`);
+            const { url } = await postRequest(`auth/oidc/${provider.id}/start`, { next });
             window.location.assign(url);
         } catch (error) {
             sendToast("Error", error.message);

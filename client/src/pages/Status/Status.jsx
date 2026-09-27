@@ -16,7 +16,7 @@ const BLOCKED = {
     blocklist: "This tunnel does not accept requests from blocklisted addresses.",
 };
 
-export const Status = ({ kind, id, to, auth, ip, reason }) => {
+export const Status = ({ kind, id, to, auth, authorize, ip, reason }) => {
     const target = to || new URLSearchParams(window.location.search).get("to") || "/";
     const [failed, setFailed] = useState(false);
     const started = useRef(false);
@@ -55,7 +55,7 @@ export const Status = ({ kind, id, to, auth, ip, reason }) => {
         }
     }, [kind, id, target]);
 
-    if (kind === "gate") return <Gate id={id} auth={auth} />;
+    if (kind === "gate") return <Gate id={id} auth={auth} authorize={authorize} />;
 
     if (kind === "blocked") {
         return (

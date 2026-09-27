@@ -14,6 +14,7 @@ const logger = require("../utils/logger");
 const UI_PREFIX = "/@tunlit";
 const API_PREFIX = "/@tunlit/api";
 const SELECT_PAGE = "/@tunlit/select";
+const GATE_PATH = "/@tunlit/gate";
 
 const wantsHtml = req => /\btext\/html\b/.test(req.headers.accept || "");
 
@@ -96,7 +97,15 @@ const createRouter = ({ config, auth, registry, traffic, visitors, breakpoints, 
         }
 
         const headers = isNavigation(req) ? {} : { "WWW-Authenticate": `Basic realm="${tunnel.id}", charset="UTF-8"` };
-        return { deny: () => sendAppState(req, res, 401, { kind: "gate", id: tunnel.id, auth: policy.auth }, headers) };
+        const authorize = policy.auth === "tunlit" ? `${config.publicUrl}${API_PREFIX}/gate/${tunnel.id}/authorize` : null;
+        return { deny: () => sendAppState(req, res, 401, { kind: "gate", id: tunnel.id, auth: policy.auth, authorize }, headers) };
+    };
+
+    const completeGate = (req, res, info, url) => {
+        const to = url.searchParams.get("to") || "";
+        const token = access.redeem(url.searchParams.get("code"), info.hostname);
+        res.writeHead(302, { Location: /^\/(?![/\\])/.test(to) ? to : "/", "Cache-Control": "no-store", ...(token && { "Set-Cookie": cookieFor(token, info.secure) }) });
+        res.end();
     };
 
     const tunnelFor = (id, modes) => {
@@ -175,6 +184,7 @@ const createRouter = ({ config, auth, registry, traffic, visitors, breakpoints, 
         const pathname = url.pathname;
 
         if (pathname.startsWith(ACME_PREFIX) && acmeChallenge(req, res, pathname)) return;
+        if (pathname === GATE_PATH && config.ready && !config.setupRequired) return completeGate(req, res, info, url);
         const isUi = pathname === UI_PREFIX || pathname.startsWith(`${UI_PREFIX}/`);
 
         if (!config.ready || config.setupRequired) {

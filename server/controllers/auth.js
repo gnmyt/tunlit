@@ -18,7 +18,10 @@ module.exports.login = async (sessions, { username, password, code }, meta) => {
     return { token, username: account.username, role: account.role };
 };
 
-module.exports.checkAccountCredentials = async credentials => !!await accounts.checkCredentials(credentials);
+module.exports.checkAccountCredentials = async credentials => {
+    const account = await accounts.checkCredentials(credentials);
+    return !!account && !account.totpEnabled;
+};
 
 module.exports.logout = (sessions, token) => sessions.remove(token);
 

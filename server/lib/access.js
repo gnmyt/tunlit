@@ -163,10 +163,13 @@ const summarizePolicy = policy => {
     return parts.join(" · ") || null;
 };
 
+const CODE_TTL = 60 * 1000;
+
 class AccessStore {
     constructor(ttl = TTL) {
         this.ttl = ttl;
         this.tokens = new Map();
+        this.codes = new Map();
         this.sweeper = setInterval(() => this.sweep(), 10 * 60 * 1000);
         this.sweeper.unref();
     }
@@ -175,6 +178,20 @@ class AccessStore {
         const token = randomToken(32);
         this.tokens.set(token, { tunnelId, expiresAt: Date.now() + this.ttl });
         return token;
+    }
+
+    issueCode(tunnelId, host) {
+        const code = randomToken(32);
+        this.codes.set(code, { tunnelId, host, expiresAt: Date.now() + CODE_TTL });
+        return code;
+    }
+
+    redeem(code, host) {
+        const entry = code && this.codes.get(code);
+        if (!entry) return null;
+        this.codes.delete(code);
+        if (entry.expiresAt < Date.now() || entry.host !== host) return null;
+        return this.create(entry.tunnelId);
     }
 
     allows(token, tunnelId) {
@@ -194,6 +211,7 @@ class AccessStore {
     sweep() {
         const now = Date.now();
         for (const [token, entry] of this.tokens) if (entry.expiresAt < now) this.tokens.delete(token);
+        for (const [code, entry] of this.codes) if (entry.expiresAt < now) this.codes.delete(code);
     }
 }
 
