@@ -26,7 +26,7 @@
     "@simplewebauthn/browser": "^14.0.0",
     "codemirror": "^6.0.2",
     "flag-icons": "^7.5.0",
-    "lucide-react": "^1.47.0",
+    "lucide-react": "^1.48.0",
     "prettier": "^3.9.9",
     "qrcode": "^1.5.4",
     "react": "^19.3.0",
