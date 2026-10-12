@@ -34,7 +34,7 @@
     "bufferutil": "^4.1.0"
   },
   "devDependencies": {
-    "concurrently": "^10.0.5",
+    "concurrently": "^10.0.6",
     "vitepress": "^1.6.4"
   }
 }
