@@ -27,7 +27,7 @@
     "codemirror": "^6.0.2",
     "flag-icons": "^7.5.0",
     "lucide-react": "^1.52.0",
-    "prettier": "^3.9.9",
+    "prettier": "^3.9.10",
     "qrcode": "^1.5.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
