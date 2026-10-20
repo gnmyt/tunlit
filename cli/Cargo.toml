@@ -37,7 +37,7 @@ open = "5"
 indicatif = "0.18"
 qrcode = { version = "0.14", default-features = false }
 arboard = { version = "3", default-features = false }
-eframe = { version = "0.36", optional = true }
+eframe = { version = "0.37", optional = true }
 global-hotkey = { version = "0.9", optional = true }
 rfd = { version = "0.17", optional = true, default-features = false, features = ["xdg-portal"] }
 ratatui = "0.30"
