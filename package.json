@@ -23,7 +23,7 @@
     "@simplewebauthn/server": "^14.1.0",
     "acme-client": "^5.4.0",
     "js-yaml": "^5.5.0",
-    "mmdb-lib": "^3.0.4",
+    "mmdb-lib": "^3.0.5",
     "openid-client": "^6.8.9",
     "sequelize": "^6.37.8",
     "speakeasy": "^2.0.0",
